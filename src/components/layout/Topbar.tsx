@@ -27,7 +27,7 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
-  const [hasNotifications] = useState(3)
+  const [hasNotifications, setHasNotifications] = useState(0)
   const router = useRouter()
   const searchRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
@@ -57,6 +57,22 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
     
     return () => clearTimeout(timeoutId)
   }, [searchQuery, supabase])
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      const today = new Date().toISOString().split('T')[0]
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      const { count } = await supabase
+        .from('appointments')
+        .select('*', { count: 'exact', head: true })
+        .gte('appointment_date', today)
+        .lte('appointment_date', nextWeek)
+        .in('status', ['pending', 'rescheduled'])
+      
+      if (count !== null) setHasNotifications(count)
+    }
+    fetchPendingCount()
+  }, [supabase])
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -175,27 +191,51 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
         </motion.button>
 
         {/* Notifications */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="relative w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          aria-label="Notificaciones"
-        >
-          <Bell className="w-4 h-4" />
-          <AnimatePresence>
-            {hasNotifications > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0 }}
-                className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
-                style={{ background: '#ef4444' }}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="relative w-9 h-9 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors outline-none cursor-pointer"
+            aria-label="Notificaciones"
+          >
+            <Bell className="w-4 h-4" />
+            <AnimatePresence>
+              {hasNotifications > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0 }}
+                  className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
+                  style={{ background: '#ef4444' }}
+                >
+                  {hasNotifications}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64 p-2 rounded-2xl">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="text-sm font-semibold">Notificaciones</DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <div className="p-3 text-sm text-muted-foreground space-y-3">
+              {hasNotifications > 0 ? (
+                <p>Tienes <strong className="text-foreground">{hasNotifications} citas</strong> en los próximos 7 días que puedes confirmar.</p>
+              ) : (
+                <p>No tienes recordatorios pendientes de envío en este momento.</p>
+              )}
+              <button 
+                onClick={() => {
+                  router.push('/settings?open=notifications')
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('open-notifications'))
+                  }
+                }}
+                className="w-full text-xs bg-primary/10 text-primary font-semibold py-2.5 rounded-xl hover:bg-primary/20 transition-colors"
               >
-                {hasNotifications}
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </motion.button>
+                Abrir Centro de WhatsApp
+              </button>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* User dropdown */}
         <DropdownMenu>

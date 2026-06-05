@@ -100,6 +100,24 @@ export default function SettingsPage() {
     if (data) setUpcomingAppointments(data)
   }
 
+  useEffect(() => {
+    const handleOpenNotifs = () => {
+      setIsNotificationsOpen(true)
+      fetchUpcomingAppointments()
+    }
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('open') === 'notifications') {
+        handleOpenNotifs()
+        window.history.replaceState({}, '', '/settings')
+      }
+      
+      window.addEventListener('open-notifications', handleOpenNotifs)
+      return () => window.removeEventListener('open-notifications', handleOpenNotifs)
+    }
+  }, [supabase])
+
   const handleSectionClick = (title: string) => {
     if (title === 'Perfil del Usuario') {
       setIsProfileOpen(true)
