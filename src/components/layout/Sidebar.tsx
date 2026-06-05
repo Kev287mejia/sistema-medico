@@ -9,6 +9,7 @@ import {
   Baby,
   CalendarDays,
   ArrowRightLeft,
+  BedDouble,
   BarChart3,
   Settings,
   Heart,
@@ -33,6 +34,7 @@ const getAllNavItems = (role?: string) => {
     {
       group: 'Gestión',
       items: [
+        { label: 'Camas', href: '/admissions', icon: BedDouble },
         { label: 'Referencias', href: '/referrals', icon: ArrowRightLeft },
         { label: 'Alertas de Riesgo', href: '/alerts', icon: AlertTriangle },
         { label: 'Reportes', href: '/reports', icon: FileText },

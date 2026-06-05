@@ -112,7 +112,8 @@ export default function DashboardPage() {
     activePregnancies: 0,
     highRisk: 0,
     referrals: 0,
-    appointmentsToday: 0
+    appointmentsToday: 0,
+    occupiedBeds: 0
   })
   const [appointmentsList, setAppointmentsList] = useState<any[]>([])
 
@@ -121,12 +122,13 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadKPIs() {
       const today = new Date().toISOString().split('T')[0]
-      const [pRes, prRes, riskRes, refRes, apptRes] = await Promise.all([
+      const [pRes, prRes, riskRes, refRes, apptRes, bedsRes] = await Promise.all([
         supabase.from('patients').select('*', { count: 'exact', head: true }).is('deleted_at', null),
         supabase.from('pregnancies').select('*', { count: 'exact', head: true }).eq('is_active', true),
         supabase.from('pregnancies').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('risk_level', 'high'),
         supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
-        supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('appointment_date', today)
+        supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('appointment_date', today),
+        supabase.from('admissions').select('*', { count: 'exact', head: true }).eq('status', 'admitted')
       ])
 
       setCounts({
@@ -134,7 +136,8 @@ export default function DashboardPage() {
         activePregnancies: prRes.count || 0,
         highRisk: riskRes.count || 0,
         referrals: refRes.count || 0,
-        appointmentsToday: apptRes.count || 0
+        appointmentsToday: apptRes.count || 0,
+        occupiedBeds: bedsRes.count || 0
       })
 
       const { data: apptData } = await supabase
@@ -170,7 +173,7 @@ export default function DashboardPage() {
     { label: 'Citas Hoy', value: counts.appointmentsToday.toString(), icon: CalendarCheck, trend: 'Real', trendUp: true, color: '#10b981', bg: '#f0fdf4', sub: 'Agendadas hoy', href: '/appointments' },
     { label: 'Embarazos de Riesgo', value: counts.highRisk.toString(), icon: AlertTriangle, trend: 'Real', trendUp: false, color: '#ef4444', bg: '#fef2f2', sub: 'Requieren prioridad', href: '/patients' },
     { label: 'Referencias Activas', value: counts.referrals.toString(), icon: ArrowRightLeft, trend: 'Real', trendUp: true, color: '#f59e0b', bg: '#fffbeb', sub: 'Traslados en curso', href: '/referrals' },
-    { label: 'Ocupación de Camas', value: '14/20', icon: BedDouble, trend: 'Demo', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de unidad', href: '/dashboard' },
+    { label: 'Ocupación de Camas', value: `${counts.occupiedBeds}/20`, icon: BedDouble, trend: 'Real', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de unidad', href: '/admissions' },
   ]
 
   return (

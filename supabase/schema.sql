@@ -15,6 +15,7 @@ CREATE TYPE risk_level AS ENUM ('low', 'medium', 'high');
 CREATE TYPE appointment_type AS ENUM ('prenatal_control', 'ultrasound', 'general', 'emergency');
 CREATE TYPE appointment_status AS ENUM ('pending', 'completed', 'cancelled', 'rescheduled');
 CREATE TYPE referral_status AS ENUM ('pending', 'in_progress', 'completed', 'cancelled');
+CREATE TYPE admission_status AS ENUM ('admitted', 'discharged');
 CREATE TYPE blood_type AS ENUM ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown');
 CREATE TYPE audit_action_type AS ENUM ('INSERT', 'UPDATE', 'DELETE');
 
@@ -124,6 +125,21 @@ CREATE TABLE public.referrals (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tabla: admisiones (Ocupación de camas)
+CREATE TABLE public.admissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    pregnancy_id UUID REFERENCES public.pregnancies(id),
+    bed_number TEXT,
+    admission_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    discharge_date TIMESTAMPTZ,
+    reason TEXT NOT NULL,
+    status admission_status DEFAULT 'admitted'::admission_status NOT NULL,
+    created_by UUID REFERENCES public.profiles(id),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Tabla: registro de auditoría (Audit Logs)
 CREATE TABLE public.audit_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -156,6 +172,7 @@ CREATE TRIGGER update_pregnancies_updated_at BEFORE UPDATE ON public.pregnancies
 CREATE TRIGGER update_prenatal_controls_updated_at BEFORE UPDATE ON public.prenatal_controls FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_appointments_updated_at BEFORE UPDATE ON public.appointments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_referrals_updated_at BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_admissions_updated_at BEFORE UPDATE ON public.admissions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Función de Auditoría
 CREATE OR REPLACE FUNCTION log_audit_event()
@@ -211,6 +228,7 @@ ALTER TABLE public.pregnancies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.prenatal_controls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admissions ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para Profiles
 -- Los usuarios pueden leer todos los perfiles de la institución, pero solo pueden editar el suyo (a menos que sean admins).
@@ -242,6 +260,11 @@ CREATE POLICY "Pregnancies updatable by staff" ON public.pregnancies FOR UPDATE 
 CREATE POLICY "Referrals viewable by authenticated" ON public.referrals FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Referrals insertable by staff" ON public.referrals FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Referrals updatable by staff" ON public.referrals FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Políticas para Admissions
+CREATE POLICY "Admissions viewable by authenticated" ON public.admissions FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Admissions insertable by staff" ON public.admissions FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Admissions updatable by staff" ON public.admissions FOR UPDATE USING (auth.role() = 'authenticated');
 
 -- Políticas para Audit Logs
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
