@@ -19,45 +19,43 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { LordIcon } from '@/components/ui/LordIcon'
 
 const getAllNavItems = (role?: string) => {
   const items = [
     {
       group: 'Principal',
       items: [
-        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-        { label: 'Pacientes', href: '/patients', icon: Users },
-        { label: 'Control Prenatal', href: '/prenatal', icon: Baby },
-        { label: 'Citas', href: '/appointments', icon: CalendarDays },
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, lordIcon: 'https://cdn.lordicon.com/bxxnzvfm.json' },
+        { label: 'Pacientes', href: '/patients', icon: Users, lordIcon: 'https://cdn.lordicon.com/ljvjsnvh.json' },
+        { label: 'Control Prenatal', href: '/prenatal', icon: Baby, lordIcon: 'https://cdn.lordicon.com/rjzlnunf.json' },
+        { label: 'Citas', href: '/appointments', icon: CalendarDays, lordIcon: 'https://cdn.lordicon.com/qjuahhae.json' },
       ],
     },
     {
       group: 'Gestión',
       items: [
-        { label: 'Referencias', href: '/referrals', icon: ArrowRightLeft },
-        { label: 'Alertas de Riesgo', href: '/alerts', icon: AlertTriangle },
-        { label: 'Reportes', href: '/reports', icon: FileText },
+        { label: 'Referencias', href: '/referrals', icon: ArrowRightLeft, lordIcon: 'https://cdn.lordicon.com/hursldrn.json' },
+        { label: 'Alertas de Riesgo', href: '/alerts', icon: AlertTriangle, lordIcon: 'https://cdn.lordicon.com/zzcjjxew.json' },
+        { label: 'Reportes', href: '/reports', icon: FileText, lordIcon: 'https://cdn.lordicon.com/nocovwne.json' },
       ],
     },
   ]
 
   // Add Analytics and Settings only for Admins and Doctors
   if (role === 'admin' || role === 'doctor') {
-    items[1].items.push({ label: 'Analítica', href: '/analytics', icon: BarChart3 })
+    items[1].items.push({ label: 'Analítica', href: '/analytics', icon: BarChart3, lordIcon: 'https://cdn.lordicon.com/gqdzzmng.json' })
     items.push({
       group: 'Sistema',
       items: [
-        { label: 'Configuración', href: '/settings', icon: Settings },
+        { label: 'Configuración', href: '/settings', icon: Settings, lordIcon: 'https://cdn.lordicon.com/hwuyodym.json' },
       ],
     })
   } else {
-    // For nurses, maybe give them settings but hide some tabs inside Settings, or just keep them out of Settings altogether. 
-    // Wait, nurses still need to change their own password or see their profile.
-    // So let's include Configuración for everyone, but we'll restrict Analytics.
     items.push({
       group: 'Sistema',
       items: [
-        { label: 'Configuración', href: '/settings', icon: Settings },
+        { label: 'Configuración', href: '/settings', icon: Settings, lordIcon: 'https://cdn.lordicon.com/hwuyodym.json' },
       ],
     })
   }
@@ -146,7 +144,13 @@ export function Sidebar({ className, role }: SidebarProps) {
                           : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                       )}
                     >
-                      <Icon className={cn('w-4 h-4 shrink-0', isActive && 'text-white')} />
+                      {item.lordIcon ? (
+                        <div className={cn("shrink-0 flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity", isActive && 'opacity-100')}>
+                          <LordIcon src={item.lordIcon} size={18} colors={isActive ? "primary:#ffffff,secondary:#ffffff" : "primary:#64748b,secondary:#0d9488"} />
+                        </div>
+                      ) : (
+                        <Icon className={cn('w-4 h-4 shrink-0', isActive && 'text-white')} />
+                      )}
                       <AnimatePresence>
                         {!collapsed && (
                           <motion.span

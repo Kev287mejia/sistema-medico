@@ -78,7 +78,7 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: "easeOut" } },
 }
 
 const riskColors: Record<string, string> = {
