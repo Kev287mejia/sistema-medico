@@ -206,54 +206,82 @@ export default function AdmissionsPage() {
           )}
         </CardContent>
       </Card>
-      {/* Admit Patient Modal */}
+      {/* Premium Admit Patient Modal */}
       <Dialog open={isAdmitModalOpen} onOpenChange={setIsAdmitModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Ingresar Paciente a Cama</DialogTitle>
-          </DialogHeader>
-          <form onSubmit={handleAdmitSubmit} className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Paciente</Label>
-              <select 
-                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                value={formData.patient_id}
-                onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
-                required
-              >
-                <option value="">-- Seleccionar Paciente --</option>
-                {patientsList.map(p => (
-                  <option key={p.id} value={p.id}>
-                    {p.first_name} {p.last_name} ({p.mrn})
-                  </option>
-                ))}
-              </select>
+        <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden border-0 shadow-2xl rounded-2xl">
+          <div className="bg-gradient-to-br from-emerald-600 to-teal-800 p-6 text-white relative overflow-hidden">
+            <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10 mix-blend-overlay"></div>
+            <DialogHeader className="relative z-10">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
+                  <BedDouble className="w-5 h-5 text-white" />
+                </div>
+                <DialogTitle className="text-2xl font-bold text-white font-heading">Ingreso de Paciente</DialogTitle>
+              </div>
+              <p className="text-emerald-100 text-sm">
+                Asigna una cama y registra el motivo de ingreso en la Casa Materna.
+              </p>
+            </DialogHeader>
+          </div>
+
+          <form onSubmit={handleAdmitSubmit} className="p-6 space-y-6 bg-card">
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center text-emerald-700">1</div>
+                Seleccionar Paciente
+              </Label>
+              <div className="relative">
+                <select 
+                  className="w-full h-11 appearance-none rounded-xl border border-input bg-background/50 px-4 py-2 text-sm text-foreground shadow-sm transition-all focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                  value={formData.patient_id}
+                  onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
+                  required
+                >
+                  <option value="" disabled>Haz clic para buscar paciente...</option>
+                  {patientsList.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.first_name} {p.last_name} — Exp: {p.mrn}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-muted-foreground">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+              </div>
             </div>
             
-            <div className="space-y-2">
-              <Label>Número de Cama (Opcional)</Label>
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center text-emerald-700">2</div>
+                Asignación de Cama
+              </Label>
               <Input 
+                className="h-11 rounded-xl bg-background/50 border-input shadow-sm focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
                 placeholder="Ej. Cama 3, Cama A..." 
                 value={formData.bed_number}
                 onChange={(e) => setFormData({...formData, bed_number: e.target.value})}
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Razón de Ingreso</Label>
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <div className="w-6 h-6 rounded-md bg-emerald-100 flex items-center justify-center text-emerald-700">3</div>
+                Motivo de Ingreso
+              </Label>
               <Input 
-                placeholder="Ej. Trabajo de parto, Observación..." 
+                className="h-11 rounded-xl bg-background/50 border-input shadow-sm focus:border-emerald-500 focus:ring-emerald-500/20 transition-all"
+                placeholder="Ej. Trabajo de parto activo, Observación, etc." 
                 value={formData.reason}
                 onChange={(e) => setFormData({...formData, reason: e.target.value})}
                 required
               />
             </div>
             
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => setIsAdmitModalOpen(false)}>
+            <DialogFooter className="pt-2 gap-2 sm:gap-0">
+              <Button type="button" variant="ghost" onClick={() => setIsAdmitModalOpen(false)} className="rounded-xl hover:bg-muted">
                 Cancelar
               </Button>
-              <Button type="submit" disabled={submitting}>
+              <Button type="submit" disabled={submitting} className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-md transition-all hover:shadow-lg">
                 {submitting ? 'Guardando...' : 'Confirmar Ingreso'}
               </Button>
             </DialogFooter>
