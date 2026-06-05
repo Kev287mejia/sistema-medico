@@ -22,6 +22,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { prenatalControlSchema, PrenatalControlFormData } from '@/lib/validations/clinical'
+import { useAutosave } from '@/hooks/useAutosave'
+import { addToSyncQueue } from '@/lib/offlineSync'
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -46,12 +51,29 @@ export default function PatientDetailsPage() {
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Form states for new control
-  const [weeks, setWeeks] = useState('')
-  const [weight, setWeight] = useState('')
-  const [bp, setBp] = useState('')
-  const [fhr, setFhr] = useState('')
-  const [fh, setFh] = useState('')
+  const { register, handleSubmit, formState: { errors }, reset, watch } = useForm<PrenatalControlFormData>({
+    resolver: zodResolver(prenatalControlSchema)
+  })
+
+  const { saveDraft, clearDraft, loadDraft, hasDraft } = useAutosave<PrenatalControlFormData>(`prenatal_${patientId}`, {} as PrenatalControlFormData)
+
+  useEffect(() => {
+    const subscription = watch((value) => {
+      // Only save if some fields have values to avoid empty drafts
+      if (Object.keys(value).length > 0) {
+        saveDraft(value as PrenatalControlFormData)
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, saveDraft])
+
+  const handleRestoreDraft = () => {
+    const draft = loadDraft()
+    if (draft) {
+      reset(draft)
+      toast.success('Borrador restaurado exitosamente')
+    }
+  }
 
   const supabase = createClient()
 
@@ -85,32 +107,40 @@ export default function PatientDetailsPage() {
     loadData()
   }, [patientId, supabase])
 
-  const handleSaveControl = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSaveControl = async (formData: PrenatalControlFormData) => {
     setIsSubmitting(true)
-    
-    const [systolic, diastolic] = bp.split('/').map(Number)
 
-    const { data: userAuth } = await supabase.auth.getUser()
-
-    const { data, error } = await supabase.from('prenatal_controls').insert({
+    const payload = {
       pregnancy_id: pregnancy?.id,
       patient_id: patientId,
       control_date: new Date().toISOString().split('T')[0],
-      gestational_weeks: Number(weeks),
-      weight_kg: Number(weight),
-      blood_pressure_systolic: systolic || 0,
-      blood_pressure_diastolic: diastolic || 0,
-      fetal_heart_rate: Number(fhr),
-      fundal_height_cm: Number(fh),
-      doctor_id: userAuth?.user?.id
-    }).select().single()
+      gestational_weeks: formData.gestational_weeks,
+      weight_kg: formData.weight_kg,
+      blood_pressure_systolic: formData.blood_pressure_systolic,
+      blood_pressure_diastolic: formData.blood_pressure_diastolic,
+      fetal_heart_rate: formData.fetal_heart_rate || null,
+      fundal_height_cm: formData.fundal_height_cm || null,
+      doctor_id: (await supabase.auth.getUser()).data?.user?.id
+    }
+
+    if (!navigator.onLine) {
+      addToSyncQueue('prenatal_controls', payload)
+      toast.success('Guardado localmente. Se sincronizará cuando vuelvas a tener conexión.')
+      setIsSheetOpen(false)
+      reset()
+      clearDraft()
+      setIsSubmitting(false)
+      return
+    }
+
+    const { data, error } = await supabase.from('prenatal_controls').insert(payload).select().single()
 
     if (!error && data) {
       setControls([...controls, data])
       setIsSheetOpen(false)
       toast.success('Control registrado exitosamente')
-      setWeight(''); setBp(''); setFhr(''); setFh(''); setWeeks('');
+      reset()
+      clearDraft()
     } else {
       toast.error('Error al guardar control')
     }
@@ -224,30 +254,46 @@ export default function PatientDetailsPage() {
                     <SheetHeader>
                       <SheetTitle>Nuevo Control Prenatal</SheetTitle>
                       <SheetDescription>
-                        Registra los signos vitales y datos del control de la semana {mockPatientData.gestationalWeeks}.
+                        Registra los signos vitales y datos del nuevo control prenatal.
                       </SheetDescription>
                     </SheetHeader>
-                    <form onSubmit={handleSaveControl} className="space-y-6 mt-6">
+                    <form onSubmit={handleSubmit(handleSaveControl)} className="space-y-6 mt-6">
+                      {hasDraft && (
+                        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm p-3 rounded-lg flex items-center justify-between">
+                          <span>Tienes un borrador sin guardar.</span>
+                          <button type="button" onClick={handleRestoreDraft} className="underline font-semibold hover:text-amber-900">Restaurar</button>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Semanas de Gest.</Label>
-                          <Input required type="number" value={weeks} onChange={e => setWeeks(e.target.value)} placeholder="Ej. 24" />
+                          <Input type="number" {...register('gestational_weeks', { valueAsNumber: true })} placeholder="Ej. 24" />
+                          {errors.gestational_weeks && <p className="text-red-500 text-[10px]">{errors.gestational_weeks.message}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label>Peso (kg)</Label>
-                          <Input required type="number" step="0.1" value={weight} onChange={e => setWeight(e.target.value)} placeholder="Ej. 65" />
+                          <Input type="number" step="0.1" {...register('weight_kg', { valueAsNumber: true })} placeholder="Ej. 65" />
+                          {errors.weight_kg && <p className="text-red-500 text-[10px]">{errors.weight_kg.message}</p>}
                         </div>
                         <div className="space-y-2">
-                          <Label>Presión Arterial</Label>
-                          <Input required placeholder="120/80" value={bp} onChange={e => setBp(e.target.value)} />
+                          <Label>Presión Sistólica</Label>
+                          <Input type="number" {...register('blood_pressure_systolic', { valueAsNumber: true })} placeholder="120" />
+                          {errors.blood_pressure_systolic && <p className="text-red-500 text-[10px]">{errors.blood_pressure_systolic.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Presión Diastólica</Label>
+                          <Input type="number" {...register('blood_pressure_diastolic', { valueAsNumber: true })} placeholder="80" />
+                          {errors.blood_pressure_diastolic && <p className="text-red-500 text-[10px]">{errors.blood_pressure_diastolic.message}</p>}
                         </div>
                         <div className="space-y-2">
                           <Label>Frec. Cardíaca Fetal</Label>
-                          <Input required type="number" value={fhr} onChange={e => setFhr(e.target.value)} placeholder="140" />
+                          <Input type="number" {...register('fetal_heart_rate', { valueAsNumber: true })} placeholder="140" />
+                          {errors.fetal_heart_rate && <p className="text-red-500 text-[10px]">{errors.fetal_heart_rate.message}</p>}
                         </div>
-                        <div className="space-y-2 col-span-2">
+                        <div className="space-y-2">
                           <Label>Altura Uterina (cm)</Label>
-                          <Input required type="number" value={fh} onChange={e => setFh(e.target.value)} placeholder="20" />
+                          <Input type="number" {...register('fundal_height_cm', { valueAsNumber: true })} placeholder="20" />
+                          {errors.fundal_height_cm && <p className="text-red-500 text-[10px]">{errors.fundal_height_cm.message}</p>}
                         </div>
                       </div>
                       <div className="pt-4 border-t border-border">

@@ -16,6 +16,7 @@ CREATE TYPE appointment_type AS ENUM ('prenatal_control', 'ultrasound', 'general
 CREATE TYPE appointment_status AS ENUM ('pending', 'completed', 'cancelled', 'rescheduled');
 CREATE TYPE referral_status AS ENUM ('pending', 'in_progress', 'completed', 'cancelled');
 CREATE TYPE blood_type AS ENUM ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown');
+CREATE TYPE audit_action_type AS ENUM ('INSERT', 'UPDATE', 'DELETE');
 
 -- ==========================================
 -- 2. TABLAS PRINCIPALES
@@ -123,6 +124,18 @@ CREATE TABLE public.referrals (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tabla: registro de auditoría (Audit Logs)
+CREATE TABLE public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    table_name TEXT NOT NULL,
+    record_id UUID NOT NULL,
+    action audit_action_type NOT NULL,
+    old_data JSONB,
+    new_data JSONB,
+    changed_by UUID REFERENCES public.profiles(id),
+    changed_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==========================================
 -- 3. TRIGGERS PARA UPDATED_AT
 -- ==========================================
@@ -143,6 +156,37 @@ CREATE TRIGGER update_pregnancies_updated_at BEFORE UPDATE ON public.pregnancies
 CREATE TRIGGER update_prenatal_controls_updated_at BEFORE UPDATE ON public.prenatal_controls FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_appointments_updated_at BEFORE UPDATE ON public.appointments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_referrals_updated_at BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Función de Auditoría
+CREATE OR REPLACE FUNCTION log_audit_event()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_user_id UUID;
+BEGIN
+    -- Obtener el usuario actual desde el JWT de Supabase si existe
+    v_user_id := auth.uid();
+    
+    IF TG_OP = 'INSERT' THEN
+        INSERT INTO public.audit_logs (table_name, record_id, action, new_data, changed_by)
+        VALUES (TG_TABLE_NAME::TEXT, NEW.id, 'INSERT'::audit_action_type, row_to_json(NEW)::JSONB, v_user_id);
+        RETURN NEW;
+    ELSIF TG_OP = 'UPDATE' THEN
+        INSERT INTO public.audit_logs (table_name, record_id, action, old_data, new_data, changed_by)
+        VALUES (TG_TABLE_NAME::TEXT, NEW.id, 'UPDATE'::audit_action_type, row_to_json(OLD)::JSONB, row_to_json(NEW)::JSONB, v_user_id);
+        RETURN NEW;
+    ELSIF TG_OP = 'DELETE' THEN
+        INSERT INTO public.audit_logs (table_name, record_id, action, old_data, changed_by)
+        VALUES (TG_TABLE_NAME::TEXT, OLD.id, 'DELETE'::audit_action_type, row_to_json(OLD)::JSONB, v_user_id);
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Aplicar triggers de auditoría a las tablas principales
+CREATE TRIGGER audit_patients_changes AFTER INSERT OR UPDATE OR DELETE ON public.patients FOR EACH ROW EXECUTE FUNCTION log_audit_event();
+CREATE TRIGGER audit_pregnancies_changes AFTER INSERT OR UPDATE OR DELETE ON public.pregnancies FOR EACH ROW EXECUTE FUNCTION log_audit_event();
+CREATE TRIGGER audit_prenatal_controls_changes AFTER INSERT OR UPDATE OR DELETE ON public.prenatal_controls FOR EACH ROW EXECUTE FUNCTION log_audit_event();
 
 -- ==========================================
 -- 4. ÍNDICES DE RENDIMIENTO
@@ -198,3 +242,13 @@ CREATE POLICY "Pregnancies updatable by staff" ON public.pregnancies FOR UPDATE 
 CREATE POLICY "Referrals viewable by authenticated" ON public.referrals FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Referrals insertable by staff" ON public.referrals FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Referrals updatable by staff" ON public.referrals FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Políticas para Audit Logs
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Audit logs viewable by admins only" ON public.audit_logs FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE profiles.id = auth.uid() AND profiles.role = 'admin'
+  )
+);
+-- Las inserciones se hacen mediante SECURITY DEFINER en el trigger, por lo que no se necesita política de INSERT directa.

@@ -60,13 +60,7 @@ const recentAlerts = [
   { patient: 'Juana Rivera', condition: 'Signos de preeclampsia', risk: 'high', time: 'Hace 3 h', community: 'Kisalaya' },
 ]
 
-const todayAppointments = [
-  { patient: 'Claudia Torres', time: '08:00', type: 'Control Prenatal', doctor: 'Dra. López', status: 'attended' },
-  { patient: 'Esperanza Díaz', time: '09:30', type: 'Primera Consulta', doctor: 'Dr. Peña', status: 'attended' },
-  { patient: 'Sandra Fuentes', time: '10:00', type: 'Control Prenatal', doctor: 'Dra. López', status: 'pending' },
-  { patient: 'Lucía Méndez', time: '11:30', type: 'Seguimiento', doctor: 'Dr. Peña', status: 'pending' },
-  { patient: 'Carmen Vega', time: '14:00', type: 'Control Prenatal', doctor: 'Dra. López', status: 'pending' },
-]
+
 
 const communityData = [
   { community: 'Waspam', pacientes: 82 },
@@ -119,6 +113,7 @@ export default function DashboardPage() {
     referrals: 0,
     appointmentsToday: 0
   })
+  const [appointmentsList, setAppointmentsList] = useState<any[]>([])
 
   const supabase = createClient()
 
@@ -140,6 +135,29 @@ export default function DashboardPage() {
         referrals: refRes.count || 0,
         appointmentsToday: apptRes.count || 0
       })
+
+      const { data: apptData } = await supabase
+        .from('appointments')
+        .select(`
+          id,
+          appointment_time,
+          type,
+          status,
+          patients (first_name, last_name),
+          profiles!doctor_id (full_name)
+        `)
+        .eq('appointment_date', today)
+        .order('appointment_time', { ascending: true })
+
+      if (apptData) {
+        setAppointmentsList(apptData.map(a => ({
+          patient: `${(a.patients as any)?.first_name || ''} ${(a.patients as any)?.last_name || ''}`.trim(),
+          time: a.appointment_time.substring(0, 5),
+          type: a.type === 'prenatal_control' ? 'Control Prenatal' : a.type === 'ultrasound' ? 'Ultrasonido' : 'General',
+          doctor: (a.profiles as any)?.full_name || 'Sin asignar',
+          status: a.status === 'completed' ? 'attended' : a.status === 'cancelled' ? 'cancelled' : 'pending'
+        })))
+      }
     }
     loadKPIs()
   }, [supabase])
@@ -370,24 +388,28 @@ export default function DashboardPage() {
                   <CardTitle className="text-base font-semibold">Citas de Hoy</CardTitle>
                   <p className="text-xs text-muted-foreground">Jueves 5 de junio, 2026</p>
                 </div>
-                <Badge variant="secondary" className="text-xs">{todayAppointments.length} citas</Badge>
+                <Badge variant="secondary" className="text-xs">{appointmentsList.length} citas</Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
-              {todayAppointments.map((apt, i) => (
-                <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer">
-                  <div className="text-center shrink-0">
-                    <div className="text-xs font-bold text-foreground">{apt.time}</div>
+              {appointmentsList.length === 0 ? (
+                <div className="text-sm text-center text-muted-foreground py-4">No hay citas agendadas para hoy.</div>
+              ) : (
+                appointmentsList.map((apt, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/50 transition-colors cursor-pointer">
+                    <div className="text-center shrink-0">
+                      <div className="text-xs font-bold text-foreground">{apt.time}</div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-semibold text-foreground truncate">{apt.patient}</div>
+                      <div className="text-[10px] text-muted-foreground">{apt.type} • {apt.doctor}</div>
+                    </div>
+                    <div className="w-2 h-2 rounded-full shrink-0"
+                      style={{ background: statusConfig[apt.status]?.color || '#94a3b8' }}
+                    />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-foreground truncate">{apt.patient}</div>
-                    <div className="text-[10px] text-muted-foreground">{apt.type}</div>
-                  </div>
-                  <div className="w-2 h-2 rounded-full shrink-0"
-                    style={{ background: statusConfig[apt.status]?.color || '#94a3b8' }}
-                  />
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </motion.div>

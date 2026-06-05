@@ -1,6 +1,7 @@
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { createClient } from '@/lib/supabase/server'
+import { SyncInitializer } from '@/components/SyncInitializer'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -14,6 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen overflow-hidden bg-background grain-bg">
+      <SyncInitializer />
       {/* Sidebar */}
       <Sidebar role={profile?.role} />
 
