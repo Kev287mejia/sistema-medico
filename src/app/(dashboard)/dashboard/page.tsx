@@ -186,10 +186,6 @@ export default function DashboardPage() {
             Casa Materna Cecilia Lizario · Waspam Río Coco · Datos Reales
           </p>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Conectado a Supabase
-        </div>
       </motion.div>
 
       {/* ── KPI Cards ── */}
