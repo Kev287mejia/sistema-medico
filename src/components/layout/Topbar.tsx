@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Search, Sun, Moon, Wifi, WifiOff, User, LogOut, ChevronDown } from 'lucide-react'
+import { Bell, Search, Sun, Moon, Wifi, WifiOff, User, LogOut, ChevronDown, Menu } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -13,8 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useRouter } from 'next/navigation'
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { useRouter, usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getAllNavItems } from './Sidebar'
+import Link from 'next/link'
 
 interface TopbarProps {
   pageTitle?: string
@@ -24,6 +27,9 @@ interface TopbarProps {
 
 export function Topbar({ pageTitle = 'Dashboard', pageSubtitle, profile }: TopbarProps) {
   const [darkMode, setDarkMode] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const pathname = usePathname()
+  const navItems = getAllNavItems(profile?.role)
   const [isOnline] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -111,7 +117,55 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle, profile }: Topba
   }
 
   return (
-    <header className="h-16 glass-panel shadow-soft sticky top-0 z-30 flex items-center px-6 gap-4 mx-6 mt-4 rounded-2xl mb-4">
+    <header className="h-16 glass-panel shadow-soft sticky top-0 z-30 flex items-center px-4 md:px-6 gap-3 md:gap-4 mx-4 md:mx-6 mt-4 rounded-2xl mb-4">
+      {/* Mobile Menu */}
+      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+        <SheetTrigger className="md:hidden p-2 -ml-2 rounded-xl text-muted-foreground hover:bg-muted transition-colors cursor-pointer">
+          <Menu className="w-5 h-5" />
+        </SheetTrigger>
+        <SheetContent side="left" className="w-72 p-0 bg-sidebar border-r-0">
+          <div className="flex items-center h-16 px-6 border-b border-border gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #1e3a8a, #0d9488)' }}>
+              <svg className="w-4 h-4 text-white" fill="white" viewBox="0 0 24 24" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            </div>
+            <div>
+              <div className="font-bold text-sm text-foreground tracking-tight leading-none">SIACEM</div>
+              <div className="text-[10px] text-muted-foreground mt-0.5">Casa Materna</div>
+            </div>
+          </div>
+          <nav className="p-4 space-y-6 overflow-y-auto h-[calc(100vh-4rem)]">
+            {navItems.map((group) => (
+              <div key={group.group}>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest px-2 mb-2">
+                  {group.group}
+                </p>
+                <div className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+                    const Icon = item.icon
+                    return (
+                      <Link 
+                        key={item.href} 
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium transition-colors ${
+                          isActive
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                        }`}
+                      >
+                        <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white' : ''}`} />
+                        {item.label}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+          </nav>
+        </SheetContent>
+      </Sheet>
+
       {/* Page title */}
       <div className="flex-1 min-w-0">
         <h1 className="text-xl font-bold font-heading text-foreground leading-none">{pageTitle}</h1>

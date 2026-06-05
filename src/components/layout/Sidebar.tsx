@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-const getAllNavItems = (role?: string) => {
+export const getAllNavItems = (role?: string) => {
   const items = [
     {
       group: 'Principal',
@@ -81,7 +81,7 @@ export function Sidebar({ className, role }: SidebarProps) {
       animate={{ width: collapsed ? 72 : 260 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'relative flex flex-col h-screen border-r border-border bg-sidebar overflow-hidden shrink-0 shadow-soft',
+        'relative hidden md:flex flex-col h-screen border-r border-border bg-sidebar overflow-hidden shrink-0 shadow-soft',
         className
       )}
     >
