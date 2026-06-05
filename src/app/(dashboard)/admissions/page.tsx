@@ -5,6 +5,9 @@ import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { BedDouble, Plus, LogOut, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -13,10 +16,58 @@ export default function AdmissionsPage() {
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
+  const [isAdmitModalOpen, setIsAdmitModalOpen] = useState(false)
+  const [patientsList, setPatientsList] = useState<any[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  
+  const [formData, setFormData] = useState({
+    patient_id: '',
+    bed_number: '',
+    reason: ''
+  })
+
   useEffect(() => {
     loadAdmissions()
+    loadPatients()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function loadPatients() {
+    const { data } = await supabase
+      .from('patients')
+      .select('id, first_name, last_name, mrn')
+      .is('deleted_at', null)
+      .order('first_name')
+    if (data) setPatientsList(data)
+  }
+
+  async function handleAdmitSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!formData.patient_id || !formData.reason) {
+      toast.error('Por favor selecciona una paciente y escribe la razón')
+      return
+    }
+
+    setSubmitting(true)
+    const { error } = await supabase.from('admissions').insert({
+      patient_id: formData.patient_id,
+      bed_number: formData.bed_number,
+      reason: formData.reason,
+      status: 'admitted'
+    })
+
+    setSubmitting(false)
+
+    if (error) {
+      toast.error('Error al ingresar paciente')
+      console.error(error)
+    } else {
+      toast.success('Paciente ingresada correctamente')
+      setIsAdmitModalOpen(false)
+      setFormData({ patient_id: '', bed_number: '', reason: '' })
+      loadAdmissions()
+    }
+  }
 
   async function loadAdmissions() {
     setLoading(true)
@@ -74,7 +125,7 @@ export default function AdmissionsPage() {
             Casa Materna Cecilia Lizario
           </p>
         </div>
-        <Button className="shrink-0" onClick={() => toast.info('La función de Ingreso se implementará pronto')}>
+        <Button className="shrink-0" onClick={() => setIsAdmitModalOpen(true)}>
           <Plus className="w-4 h-4 mr-2" />
           Ingresar Paciente
         </Button>
@@ -155,6 +206,60 @@ export default function AdmissionsPage() {
           )}
         </CardContent>
       </Card>
+      {/* Admit Patient Modal */}
+      <Dialog open={isAdmitModalOpen} onOpenChange={setIsAdmitModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Ingresar Paciente a Cama</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAdmitSubmit} className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Paciente</Label>
+              <select 
+                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.patient_id}
+                onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
+                required
+              >
+                <option value="">-- Seleccionar Paciente --</option>
+                {patientsList.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.first_name} {p.last_name} ({p.mrn})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Número de Cama (Opcional)</Label>
+              <Input 
+                placeholder="Ej. Cama 3, Cama A..." 
+                value={formData.bed_number}
+                onChange={(e) => setFormData({...formData, bed_number: e.target.value})}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Razón de Ingreso</Label>
+              <Input 
+                placeholder="Ej. Trabajo de parto, Observación..." 
+                value={formData.reason}
+                onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                required
+              />
+            </div>
+            
+            <DialogFooter className="pt-4">
+              <Button type="button" variant="outline" onClick={() => setIsAdmitModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Guardando...' : 'Confirmar Ingreso'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
