@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Users,
@@ -34,18 +35,9 @@ import {
   Cell,
 } from 'recharts'
 
-// ── Demo Data ──────────────────────────────────────────────────────────────
-const kpiData = [
-  { label: 'Total Pacientes', value: '247', icon: Users, trend: '+12', trendUp: true, color: '#1e3a8a', bg: '#eff6ff', sub: 'Registradas en el sistema' },
-  { label: 'Embarazos Activos', value: '63', icon: Baby, trend: '+4', trendUp: true, color: '#0d9488', bg: '#f0fdfa', sub: 'En seguimiento prenatal' },
-  { label: 'Atenciones Hoy', value: '18', icon: CalendarCheck, trend: '+3', trendUp: true, color: '#10b981', bg: '#f0fdf4', sub: 'Consultas del día' },
-  { label: 'Embarazos de Riesgo', value: '11', icon: AlertTriangle, trend: '-2', trendUp: false, color: '#ef4444', bg: '#fef2f2', sub: 'Requieren seguimiento prioritario' },
-  { label: 'Referencias', value: '5', icon: ArrowRightLeft, trend: '0', trendUp: true, color: '#f59e0b', bg: '#fffbeb', sub: 'Traslados activos' },
-  { label: 'Nuevas Pacientes', value: '7', icon: UserPlus, trend: '+7', trendUp: true, color: '#6366f1', bg: '#f5f3ff', sub: 'Registradas este mes' },
-  { label: 'Ocupación de Camas', value: '14/20', icon: BedDouble, trend: '70%', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de la unidad' },
-  { label: 'Citas Pendientes', value: '23', icon: Clock, trend: 'hoy', trendUp: true, color: '#7c3aed', bg: '#f5f3ff', sub: 'Próximas citas agendadas' },
-]
+import { createClient } from '@/lib/supabase/client'
 
+// ── Demo Data (Charts) ──────────────────────────────────────────────────────────────
 const monthlyAttentions = [
   { mes: 'Ene', atenciones: 145 },
   { mes: 'Feb', atenciones: 162 },
@@ -120,6 +112,47 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 }
 
 export default function DashboardPage() {
+  const [counts, setCounts] = useState({
+    totalPatients: 0,
+    activePregnancies: 0,
+    highRisk: 0,
+    referrals: 0,
+    appointmentsToday: 0
+  })
+
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function loadKPIs() {
+      const today = new Date().toISOString().split('T')[0]
+      const [pRes, prRes, riskRes, refRes, apptRes] = await Promise.all([
+        supabase.from('patients').select('*', { count: 'exact', head: true }).is('deleted_at', null),
+        supabase.from('pregnancies').select('*', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('pregnancies').select('*', { count: 'exact', head: true }).eq('is_active', true).eq('risk_level', 'high'),
+        supabase.from('referrals').select('*', { count: 'exact', head: true }).eq('status', 'in_progress'),
+        supabase.from('appointments').select('*', { count: 'exact', head: true }).eq('appointment_date', today)
+      ])
+
+      setCounts({
+        totalPatients: pRes.count || 0,
+        activePregnancies: prRes.count || 0,
+        highRisk: riskRes.count || 0,
+        referrals: refRes.count || 0,
+        appointmentsToday: apptRes.count || 0
+      })
+    }
+    loadKPIs()
+  }, [supabase])
+
+  const kpiData = [
+    { label: 'Total Pacientes', value: counts.totalPatients.toString(), icon: Users, trend: 'Real', trendUp: true, color: '#1e3a8a', bg: '#eff6ff', sub: 'Registradas en BD' },
+    { label: 'Embarazos Activos', value: counts.activePregnancies.toString(), icon: Baby, trend: 'Real', trendUp: true, color: '#0d9488', bg: '#f0fdfa', sub: 'En seguimiento' },
+    { label: 'Citas Hoy', value: counts.appointmentsToday.toString(), icon: CalendarCheck, trend: 'Real', trendUp: true, color: '#10b981', bg: '#f0fdf4', sub: 'Agendadas hoy' },
+    { label: 'Embarazos de Riesgo', value: counts.highRisk.toString(), icon: AlertTriangle, trend: 'Real', trendUp: false, color: '#ef4444', bg: '#fef2f2', sub: 'Requieren prioridad' },
+    { label: 'Referencias Activas', value: counts.referrals.toString(), icon: ArrowRightLeft, trend: 'Real', trendUp: true, color: '#f59e0b', bg: '#fffbeb', sub: 'Traslados en curso' },
+    { label: 'Ocupación de Camas', value: '14/20', icon: BedDouble, trend: 'Demo', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de unidad' },
+  ]
+
   return (
     <motion.div
       variants={containerVariants}
@@ -128,23 +161,23 @@ export default function DashboardPage() {
       className="space-y-6 max-w-screen-2xl mx-auto"
     >
       {/* ── Header ── */}
-      <motion.div variants={itemVariants} className="flex items-start justify-between flex-wrap gap-4">
+      <motion.div variants={itemVariants} className="flex items-start justify-between flex-wrap gap-4 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard Ejecutivo</h1>
+          <h1 className="text-3xl font-bold font-heading text-foreground">Dashboard Ejecutivo</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Casa Materna Cecilia Lizario · Waspam Río Coco · Junio 2026
+            Casa Materna Cecilia Lizario · Waspam Río Coco · Datos Reales
           </p>
         </div>
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200">
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Sistema operativo
+          Conectado a Supabase
         </div>
       </motion.div>
 
       {/* ── KPI Cards ── */}
       <motion.div
         variants={itemVariants}
-        className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
         {kpiData.map((kpi) => {
           const Icon = kpi.icon
@@ -154,9 +187,9 @@ export default function DashboardPage() {
               whileHover={{ y: -2, boxShadow: '0 8px 30px rgba(0,0,0,0.08)' }}
               transition={{ duration: 0.2 }}
             >
-              <Card className="border-0 shadow-sm overflow-hidden cursor-pointer">
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between mb-3">
+              <Card className="glass-panel shadow-floating border-0 overflow-hidden cursor-pointer rounded-2xl h-full">
+                <CardContent className="p-6 flex flex-col justify-between h-full">
+                  <div className="flex items-start justify-between mb-4">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                       style={{ background: kpi.bg }}
                     >
@@ -167,11 +200,13 @@ export default function DashboardPage() {
                       {kpi.trend}
                     </div>
                   </div>
-                  <div className="text-3xl font-bold text-foreground mb-1" style={{ color: kpi.color }}>
-                    {kpi.value}
+                  <div>
+                    <div className="text-4xl font-bold font-heading mb-1" style={{ color: kpi.color }}>
+                      {kpi.value}
+                    </div>
+                    <div className="text-sm font-bold text-foreground">{kpi.label}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5">{kpi.sub}</div>
                   </div>
-                  <div className="text-sm font-semibold text-foreground">{kpi.label}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{kpi.sub}</div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -183,8 +218,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Monthly Chart */}
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card className="border-0 shadow-sm h-full">
-            <CardHeader className="pb-2">
+          <Card className="glass-panel shadow-floating border-0 rounded-3xl h-full">
+            <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-semibold">Atenciones Mensuales</CardTitle>
@@ -230,9 +265,9 @@ export default function DashboardPage() {
 
         {/* Risk Distribution */}
         <motion.div variants={itemVariants}>
-          <Card className="border-0 shadow-sm h-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold">Distribución de Riesgo</CardTitle>
+          <Card className="glass-panel shadow-floating border-0 rounded-3xl h-full">
+            <CardHeader className="pb-4 pt-6 px-6">
+              <CardTitle className="text-lg font-bold font-heading">Distribución de Riesgo</CardTitle>
               <p className="text-xs text-muted-foreground">Embarazos activos por nivel</p>
             </CardHeader>
             <CardContent className="flex flex-col items-center">
@@ -276,8 +311,8 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Alerts */}
         <motion.div variants={itemVariants} className="lg:col-span-2">
-          <Card className="border-0 shadow-sm">
-            <CardHeader className="pb-3">
+          <Card className="glass-panel shadow-floating border-0 rounded-3xl">
+            <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
@@ -328,8 +363,8 @@ export default function DashboardPage() {
 
         {/* Today Appointments */}
         <motion.div variants={itemVariants}>
-          <Card className="border-0 shadow-sm h-full">
-            <CardHeader className="pb-3">
+          <Card className="glass-panel shadow-floating border-0 rounded-3xl h-full">
+            <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-base font-semibold">Citas de Hoy</CardTitle>
@@ -360,8 +395,8 @@ export default function DashboardPage() {
 
       {/* ── Community Chart ── */}
       <motion.div variants={itemVariants}>
-        <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2">
+        <Card className="glass-panel shadow-floating border-0 rounded-3xl mb-8">
+          <CardHeader className="pb-4 pt-6 px-6">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base font-semibold">Pacientes por Comunidad</CardTitle>

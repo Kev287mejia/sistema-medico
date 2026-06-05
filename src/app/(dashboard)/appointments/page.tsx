@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Calendar, Clock, Plus, Search, User, Stethoscope, CheckCircle, XCircle, AlertCircle, X, Loader2 } from 'lucide-react'
 import {
@@ -15,13 +15,8 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 
-const initialAppointments = [
-  { id: 1, patient: 'María Elena Flores', mrn: 'EXP-2026-001', doctor: 'Dr. López', date: '2026-06-05', time: '09:00', type: 'Control Prenatal', status: 'confirmed' },
-  { id: 2, patient: 'Carmen Rojas Díaz',  mrn: 'EXP-2026-002', doctor: 'Dr. López', date: '2026-06-05', time: '11:30', type: 'Ultrasonido',       status: 'confirmed' },
-  { id: 3, patient: 'Ana Martínez Vega',  mrn: 'EXP-2026-004', doctor: 'Dra. García', date: '2026-06-06', time: '08:00', type: 'Control Prenatal', status: 'pending' },
-  { id: 4, patient: 'Luisa Picado',       mrn: 'EXP-2026-005', doctor: 'Dra. García', date: '2026-06-06', time: '10:00', type: 'Consulta General', status: 'cancelled' },
-]
 
 const statusConfig: Record<string, { label: string; icon: any; classes: string }> = {
   confirmed: { label: 'Confirmada', icon: CheckCircle, classes: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
@@ -30,17 +25,49 @@ const statusConfig: Record<string, { label: string; icon: any; classes: string }
 }
 
 export default function AppointmentsPage() {
-  const [appointments, setAppointments] = useState(initialAppointments)
+  const [appointments, setAppointments] = useState<any[]>([])
+  const [patientsList, setPatientsList] = useState<any[]>([])
   const [search, setSearch] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   // Form state
-  const [patient, setPatient] = useState('')
+  const [patientId, setPatientId] = useState('')
   const [doctor, setDoctor] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [type, setType] = useState('')
+
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function loadData() {
+      const { data } = await supabase.from('appointments').select(`
+        *,
+        patients (first_name, last_name, mrn)
+      `).order('appointment_date', { ascending: true })
+      
+      if (data) {
+        const mapped = data.map((a: any) => ({
+          id: a.id,
+          patient: `${a.patients?.first_name} ${a.patients?.last_name}`,
+          mrn: a.patients?.mrn,
+          doctor: 'Dr/Dra. General',
+          date: a.appointment_date,
+          time: a.appointment_time,
+          type: a.type === 'prenatal_control' ? 'Control Prenatal' : a.type === 'ultrasound' ? 'Ultrasonido' : a.type === 'emergency' ? 'Urgencia Obstétrica' : 'Consulta General',
+          status: a.status
+        }))
+        setAppointments(mapped)
+      }
+
+      const { data: pData } = await supabase.from('patients').select('id, first_name, last_name, mrn').is('deleted_at', null)
+      if (pData) setPatientsList(pData)
+      setIsLoading(false)
+    }
+    loadData()
+  }, [supabase])
 
   const filtered = appointments.filter(a =>
     a.patient.toLowerCase().includes(search.toLowerCase())
@@ -48,27 +75,45 @@ export default function AppointmentsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!patient || !doctor || !date || !time || !type) return
+    if (!patientId || !date || !time || !type) return
 
     setIsSaving(true)
-    await new Promise(r => setTimeout(r, 800))
 
-    const newAppt = {
-      id: Date.now(),
-      patient,
-      mrn: `EXP-2026-00${appointments.length + 1}`,
-      doctor,
-      date,
-      time,
-      type,
+    let typeEnum = 'general'
+    if (type === 'Control Prenatal') typeEnum = 'prenatal_control'
+    if (type === 'Ultrasonido') typeEnum = 'ultrasound'
+    if (type === 'Urgencia Obstétrica') typeEnum = 'emergency'
+
+    const { data: userData } = await supabase.auth.getUser()
+
+    const { data, error } = await supabase.from('appointments').insert({
+      patient_id: patientId,
+      appointment_date: date,
+      appointment_time: time,
+      type: typeEnum as any,
       status: 'pending',
-    }
+      created_by: userData.user?.id
+    }).select(`*, patients(first_name, last_name, mrn)`).single()
 
-    setAppointments(prev => [newAppt, ...prev])
-    toast.success(`Cita agendada para ${patient}`)
-    setIsOpen(false)
+    if (!error && data) {
+      const newAppt = {
+        id: data.id,
+        patient: `${(data.patients as any)?.first_name} ${(data.patients as any)?.last_name}`,
+        mrn: (data.patients as any)?.mrn,
+        doctor: 'Dr/Dra. General',
+        date: data.appointment_date,
+        time: data.appointment_time,
+        type: type,
+        status: data.status,
+      }
+      setAppointments(prev => [newAppt, ...prev])
+      toast.success(`Cita agendada exitosamente`)
+      setIsOpen(false)
+      setPatientId(''); setDoctor(''); setDate(''); setTime(''); setType('')
+    } else {
+      toast.error('Error al agendar cita')
+    }
     setIsSaving(false)
-    setPatient(''); setDoctor(''); setDate(''); setTime(''); setType('')
   }
 
   return (
@@ -76,63 +121,69 @@ export default function AppointmentsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Citas Médicas</h1>
+          <h1 className="text-4xl font-bold font-heading text-foreground">Citas Médicas</h1>
           <p className="text-muted-foreground mt-1">Agenda y gestión de citas programadas.</p>
         </div>
 
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <button
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90"
-              style={{ background: 'linear-gradient(135deg, #1e3a8a, #0d9488)' }}
-            >
-              <Plus className="w-4 h-4" /> Nueva Cita
-            </button>
+          <SheetTrigger
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white shadow-sm transition-all hover:opacity-90 cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #1e3a8a, #0d9488)' }}
+          >
+            <Plus className="w-4 h-4" /> Nueva Cita
           </SheetTrigger>
-          <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-            <SheetHeader>
-              <SheetTitle>Agendar Nueva Cita</SheetTitle>
-              <SheetDescription>
-                Completa los datos para registrar la cita en el sistema.
+          <SheetContent className="w-full sm:max-w-md overflow-y-auto border-l-0 shadow-floating glass-panel rounded-l-[2rem]">
+            <SheetHeader className="mb-8">
+              <SheetTitle className="text-3xl font-bold font-heading text-foreground">Nueva Cita</SheetTitle>
+              <SheetDescription className="text-sm">
+                Agenda un nuevo espacio en el calendario médico.
               </SheetDescription>
             </SheetHeader>
 
-            <form onSubmit={handleSave} className="space-y-5 mt-6">
+            <form onSubmit={handleSave} className="space-y-6">
               {/* Paciente */}
-              <div className="space-y-2">
-                <Label htmlFor="patient">Nombre de la Paciente</Label>
-                <Input
-                  id="patient"
-                  required
-                  placeholder="Ej. María Elena Flores"
-                  value={patient}
-                  onChange={e => setPatient(e.target.value)}
-                />
+              <div className="space-y-2.5">
+                <Label htmlFor="patient" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Paciente</Label>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                    <User className="w-4 h-4" />
+                  </div>
+                  <Select value={patientId} onValueChange={setPatientId} required>
+                    <SelectTrigger id="patient" className="pl-14 py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
+                      <SelectValue placeholder="Selecciona la paciente" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-2xl glass-panel shadow-floating border-0">
+                      {patientsList.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.first_name} {p.last_name} ({p.mrn})</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               {/* Doctor */}
-              <div className="space-y-2">
-                <Label htmlFor="doctor">Médico Responsable</Label>
+              <div className="space-y-2.5">
+                <Label htmlFor="doctor" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Especialista</Label>
                 <Select value={doctor} onValueChange={setDoctor} required>
-                  <SelectTrigger id="doctor">
-                    <SelectValue placeholder="Seleccionar médico" />
+                  <SelectTrigger id="doctor" className="py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
+                    <SelectValue placeholder="Selecciona un médico" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Dr. López">Dr. López</SelectItem>
-                    <SelectItem value="Dra. García">Dra. García</SelectItem>
-                    <SelectItem value="Dr. Ruiz">Dr. Ruiz</SelectItem>
+                  <SelectContent className="rounded-2xl glass-panel shadow-floating border-0">
+                    <SelectItem value="Dr. López">Dr. López (Obstetricia)</SelectItem>
+                    <SelectItem value="Dra. García">Dra. García (General)</SelectItem>
+                    <SelectItem value="Dr. Ruiz">Dr. Ruiz (Ecografía)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {/* Tipo de cita */}
-              <div className="space-y-2">
-                <Label htmlFor="type">Tipo de Cita</Label>
+              <div className="space-y-2.5">
+                <Label htmlFor="type" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Motivo</Label>
                 <Select value={type} onValueChange={setType} required>
-                  <SelectTrigger id="type">
-                    <SelectValue placeholder="Tipo de consulta" />
+                  <SelectTrigger id="type" className="py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
+                    <SelectValue placeholder="Razón de la consulta" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-2xl glass-panel shadow-floating border-0">
                     <SelectItem value="Control Prenatal">Control Prenatal</SelectItem>
                     <SelectItem value="Ultrasonido">Ultrasonido</SelectItem>
                     <SelectItem value="Consulta General">Consulta General</SelectItem>
@@ -143,38 +194,40 @@ export default function AppointmentsPage() {
 
               {/* Fecha y Hora */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="date">Fecha</Label>
+                <div className="space-y-2.5">
+                  <Label htmlFor="date" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Fecha</Label>
                   <Input
                     id="date"
                     type="date"
                     required
                     value={date}
                     onChange={e => setDate(e.target.value)}
+                    className="py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus-visible:ring-primary/20 text-base"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="time">Hora</Label>
+                <div className="space-y-2.5">
+                  <Label htmlFor="time" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Hora</Label>
                   <Input
                     id="time"
                     type="time"
                     required
                     value={time}
                     onChange={e => setTime(e.target.value)}
+                    className="py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus-visible:ring-primary/20 text-base"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-border">
+              <div className="pt-6">
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="w-full py-3 rounded-xl font-semibold text-white flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all"
-                  style={{ background: 'linear-gradient(135deg, #1e3a8a, #0d9488)' }}
+                  className="w-full py-4 rounded-2xl font-bold text-white flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-soft hover:-translate-y-0.5 active:translate-y-0"
+                  style={{ background: 'linear-gradient(135deg, #064E3B, #115E59)' }}
                 >
                   {isSaving
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Guardando...</>
-                    : <><Calendar className="w-4 h-4" />Confirmar Cita</>
+                    ? <><Loader2 className="w-5 h-5 animate-spin" /> Procesando...</>
+                    : <><Calendar className="w-5 h-5" /> Agendar en Calendario</>
                   }
                 </button>
               </div>
@@ -198,9 +251,14 @@ export default function AppointmentsPage() {
       {/* Appointment cards */}
       <div className="space-y-3">
         <AnimatePresence>
-          {filtered.length > 0 ? (
+          {isLoading ? (
+            <div className="h-40 flex flex-col items-center justify-center text-muted-foreground gap-2">
+              <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+              <span className="text-sm">Cargando citas...</span>
+            </div>
+          ) : filtered.length > 0 ? (
             filtered.map((appt, i) => {
-              const cfg = statusConfig[appt.status]
+              const cfg = statusConfig[appt.status] || statusConfig.pending
               const Icon = cfg.icon
               return (
                 <motion.div
@@ -209,14 +267,14 @@ export default function AppointmentsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.97 }}
                   transition={{ delay: i * 0.04 }}
-                  className="bg-card border border-border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-primary/30 transition-colors shadow-sm"
+                  className="glass-panel shadow-soft border-0 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-primary/30 transition-all"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0">
                       {appt.patient.charAt(0)}
                     </div>
                     <div>
-                      <div className="font-semibold text-foreground">{appt.patient}</div>
+                      <div className="font-bold font-heading text-lg text-foreground">{appt.patient}</div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-3">
                         <span className="flex items-center gap-1"><Stethoscope className="w-3 h-3" />{appt.doctor}</span>
                         <span className="flex items-center gap-1"><User className="w-3 h-3" />{appt.type}</span>

@@ -7,6 +7,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, Heart, Shield, Loader2, Lock, Mail, AlertCircle } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
 
 const loginSchema = z.object({
   email: z.string().email('Correo electrónico inválido'),
@@ -33,11 +35,24 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   })
 
-  const onSubmit = async (_data: LoginFormData) => {
+  const supabase = createClient()
+
+  const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
-    // Mock login — conectar Supabase cuando las credenciales estén listas
-    await new Promise((r) => setTimeout(r, 1200))
+    
+    const { error } = await supabase.auth.signInWithPassword({
+      email: data.email,
+      password: data.password,
+    })
+
+    if (error) {
+      toast.error('Credenciales incorrectas o usuario no encontrado')
+      setIsLoading(false)
+      return
+    }
+
     router.push('/dashboard')
+    router.refresh()
   }
 
   return (

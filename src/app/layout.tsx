@@ -1,12 +1,19 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Outfit, Fraunces } from 'next/font/google'
 import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { PwaRegister } from '@/components/PwaRegister'
 
-const inter = Inter({
+const outfit = Outfit({
   subsets: ['latin'],
   variable: '--font-sans',
+  display: 'swap',
+})
+
+const fraunces = Fraunces({
+  subsets: ['latin'],
+  variable: '--font-heading',
   display: 'swap',
 })
 
@@ -25,10 +32,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${outfit.variable} ${fraunces.variable} font-sans antialiased`}>
         <TooltipProvider delayDuration={300}>
           {children}
           <Toaster richColors position="top-right" />
+          <PwaRegister />
         </TooltipProvider>
       </body>
     </html>

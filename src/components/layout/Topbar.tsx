@@ -1,7 +1,7 @@
 'use client'
 
 import { Bell, Search, Sun, Moon, Wifi, WifiOff, User, LogOut, ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -9,10 +9,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuGroup,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 interface TopbarProps {
   pageTitle?: string
@@ -23,32 +25,86 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
   const [darkMode, setDarkMode] = useState(false)
   const [isOnline] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [isSearching, setIsSearching] = useState(false)
   const [hasNotifications] = useState(3)
   const router = useRouter()
+  const searchRef = useRef<HTMLDivElement>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const handleSearch = async () => {
+      if (searchQuery.trim().length < 2) {
+        setSearchResults([])
+        return
+      }
+      setIsSearching(true)
+      const { data } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name, mrn')
+        .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,mrn.ilike.%${searchQuery}%`)
+        .limit(5)
+      
+      if (data) {
+        setSearchResults(data)
+      }
+      setIsSearching(false)
+    }
+
+    const timeoutId = setTimeout(() => {
+      handleSearch()
+    }, 300)
+    
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, supabase])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchResults([])
+        setSearchQuery('')
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   const handleLogout = () => {
     router.push('/login')
   }
 
-  const toggleDark = () => {
-    setDarkMode(!darkMode)
-    document.documentElement.classList.toggle('dark')
+  const toggleDark = async () => {
+    if (!document.startViewTransition) {
+      setDarkMode(!darkMode)
+      document.documentElement.classList.toggle('dark')
+      return
+    }
+
+    const transition = document.startViewTransition(() => {
+      setDarkMode(!darkMode)
+      document.documentElement.classList.toggle('dark')
+    })
+
+    await transition.ready
+
+    document.documentElement.animate(
+      { clipPath: ["inset(0 0 100% 0)", "inset(0)"] },
+      { pseudoElement: "::view-transition-new(root)", duration: 600 }
+    )
   }
 
   return (
-    <header className="h-16 border-b border-border bg-card/80 backdrop-blur-md sticky top-0 z-30 flex items-center px-6 gap-4"
-      style={{ borderBottom: '1px solid #e2e8f0' }}
-    >
+    <header className="h-16 glass-panel shadow-soft sticky top-0 z-30 flex items-center px-6 gap-4 mx-6 mt-4 rounded-2xl mb-4">
       {/* Page title */}
       <div className="flex-1 min-w-0">
-        <h1 className="text-lg font-semibold text-foreground leading-none">{pageTitle}</h1>
+        <h1 className="text-xl font-bold font-heading text-foreground leading-none">{pageTitle}</h1>
         {pageSubtitle && (
           <p className="text-xs text-muted-foreground mt-0.5">{pageSubtitle}</p>
         )}
       </div>
 
       {/* Search */}
-      <div className="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-background text-sm text-muted-foreground w-72 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
+      <div ref={searchRef} className="hidden md:flex items-center gap-2 px-3.5 py-2 rounded-xl border border-border bg-background text-sm text-muted-foreground w-72 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 relative">
         <Search className="w-4 h-4 shrink-0" />
         <input
           id="global-search"
@@ -61,6 +117,38 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
         <kbd className="hidden lg:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono border border-border text-muted-foreground">
           ⌘K
         </kbd>
+
+        <AnimatePresence>
+          {searchQuery.length >= 2 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute top-full mt-2 left-0 w-full glass-panel shadow-floating border-0 rounded-2xl overflow-hidden py-2"
+            >
+              {isSearching ? (
+                <div className="px-4 py-3 text-sm text-muted-foreground text-center">Buscando...</div>
+              ) : searchResults.length > 0 ? (
+                searchResults.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setSearchQuery('')
+                      setSearchResults([])
+                      router.push(`/patients/${p.id}`)
+                    }}
+                    className="w-full px-4 py-2.5 text-left hover:bg-muted/50 transition-colors flex flex-col"
+                  >
+                    <span className="font-semibold text-foreground text-sm">{p.first_name} {p.last_name}</span>
+                    <span className="text-xs text-muted-foreground">{p.mrn}</span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-sm text-muted-foreground text-center">No se encontraron resultados</div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <div className="flex items-center gap-1.5">
@@ -125,12 +213,14 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
             <ChevronDown className="w-3 h-3 text-muted-foreground hidden lg:block" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">Dr. Médico</p>
-                <p className="text-xs text-muted-foreground">medico@casamaterna.ni</p>
-              </div>
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium">Dr. Médico</p>
+                  <p className="text-xs text-muted-foreground">medico@casamaterna.ni</p>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <User className="mr-2 h-4 w-4" />

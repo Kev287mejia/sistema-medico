@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Search, Plus, Filter, MoreHorizontal, User, Baby, Activity, AlertTriangle } from 'lucide-react'
+import { Search, Plus, Filter, MoreHorizontal, User, Baby, Activity, AlertTriangle, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import {
   Table,
@@ -19,20 +19,53 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-
-// Mock data
-const mockPatients = [
-  { id: '1', name: 'María Elena Flores', mrn: 'EXP-2026-001', age: 24, community: 'Santa Marta', status: 'active', risk: 'low', lastVisit: '2026-06-02' },
-  { id: '2', name: 'Carmen Rojas Díaz', mrn: 'EXP-2026-002', age: 19, community: 'Waspam Centro', status: 'active', risk: 'high', lastVisit: '2026-06-01' },
-  { id: '3', name: 'Julia López', mrn: 'EXP-2026-003', age: 31, community: 'Ulwas', status: 'delivered', risk: 'low', lastVisit: '2026-05-28' },
-  { id: '4', name: 'Ana Martínez Vega', mrn: 'EXP-2026-004', age: 27, community: 'Bihmona', status: 'active', risk: 'medium', lastVisit: '2026-05-25' },
-]
+import { createClient } from '@/lib/supabase/client'
 
 export default function PatientsPage() {
   const [search, setSearch] = useState('')
+  const [patients, setPatients] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+  const supabase = createClient()
 
-  const filtered = mockPatients.filter(p =>
+  useEffect(() => {
+    async function fetchPatients() {
+      const { data, error } = await supabase
+        .from('patients')
+        .select(`
+          *,
+          pregnancies (
+            risk_level,
+            is_active
+          )
+        `)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: false })
+
+      if (data) {
+        const mapped = data.map(p => {
+          const activePregnancy = p.pregnancies?.find((pr: any) => pr.is_active)
+          const age = Math.floor((new Date().getTime() - new Date(p.date_of_birth).getTime()) / 3.15576e+10)
+
+          return {
+            id: p.id,
+            name: `${p.first_name} ${p.last_name}`,
+            mrn: p.mrn,
+            age,
+            community: p.community,
+            status: p.status,
+            risk: activePregnancy?.risk_level || 'low',
+            lastVisit: new Date(p.updated_at).toLocaleDateString()
+          }
+        })
+        setPatients(mapped)
+      }
+      setIsLoading(false)
+    }
+    fetchPatients()
+  }, [supabase])
+
+  const filtered = patients.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.mrn.toLowerCase().includes(search.toLowerCase())
   )
@@ -42,8 +75,8 @@ export default function PatientsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Pacientes</h1>
-          <p className="text-muted-foreground mt-1">Gestión de expedientes y registros maternos.</p>
+          <h1 className="text-4xl font-bold font-heading text-foreground">Directorio de Pacientes</h1>
+          <p className="text-muted-foreground mt-1">Gestión de expedientes y registros maternos</p>
         </div>
         <motion.button
           whileHover={{ scale: 1.02 }}
@@ -76,29 +109,38 @@ export default function PatientsPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
+      <div className="rounded-3xl glass-panel shadow-soft overflow-hidden">
         <Table>
-          <TableHeader className="bg-muted/50">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[300px] font-semibold">Paciente</TableHead>
-              <TableHead className="font-semibold">Comunidad</TableHead>
-              <TableHead className="font-semibold">Riesgo</TableHead>
-              <TableHead className="font-semibold">Estado</TableHead>
-              <TableHead className="font-semibold text-right">Última Visita</TableHead>
+          <TableHeader className="bg-primary/5">
+            <TableRow className="hover:bg-transparent border-b-primary/10">
+              <TableHead className="w-[300px] font-semibold text-primary">Paciente</TableHead>
+              <TableHead className="font-semibold text-primary">Comunidad</TableHead>
+              <TableHead className="font-semibold text-primary">Riesgo</TableHead>
+              <TableHead className="font-semibold text-primary">Estado</TableHead>
+              <TableHead className="font-semibold text-right text-primary">Última Visita</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="h-40 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary/50" />
+                    <span>Cargando pacientes...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filtered.length > 0 ? (
               filtered.map((patient) => (
-                <TableRow key={patient.id} className="group cursor-pointer hover:bg-muted/30">
-                  <TableCell className="py-4">
+                <TableRow key={patient.id} onClick={() => router.push(`/patients/${patient.id}`)} className="group cursor-pointer hover:bg-white/50 border-b-border/50 transition-all">
+                  <TableCell className="py-5">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                      <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
                         {patient.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                        <div className="font-bold font-heading text-lg text-foreground group-hover:text-primary transition-colors">
                           {patient.name}
                         </div>
                         <div className="text-xs text-muted-foreground mt-0.5">{patient.mrn} · {patient.age} años</div>
@@ -132,7 +174,7 @@ export default function PatientsPage() {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                        <User className="w-3 h-3" /> Postparto
+                        <User className="w-3 h-3" /> {patient.status === 'delivered' ? 'Postparto' : 'Traslado/Inactivo'}
                       </span>
                     )}
                   </TableCell>

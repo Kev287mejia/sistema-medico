@@ -61,16 +61,15 @@ export function Sidebar({ className }: SidebarProps) {
       animate={{ width: collapsed ? 72 : 260 }}
       transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
       className={cn(
-        'relative flex flex-col h-screen border-r border-border bg-sidebar overflow-hidden shrink-0',
+        'relative flex flex-col h-screen border-r border-border bg-sidebar overflow-hidden shrink-0 shadow-soft',
         className
       )}
-      style={{ borderRight: '1px solid #e2e8f0' }}
     >
       {/* Logo Area */}
       <div className={cn(
         'flex items-center h-16 px-4 border-b border-border shrink-0',
         collapsed ? 'justify-center' : 'gap-3'
-      )} style={{ borderBottom: '1px solid #e2e8f0' }}>
+      )}>
         <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: 'linear-gradient(135deg, #1e3a8a, #0d9488)' }}
         >
@@ -149,7 +148,7 @@ export function Sidebar({ className }: SidebarProps) {
       </nav>
 
       {/* Collapse Toggle */}
-      <div className="p-2 border-t border-border" style={{ borderTop: '1px solid #e2e8f0' }}>
+      <div className="p-2 border-t border-border">
         <button
           onClick={() => setCollapsed(!collapsed)}
           className={cn(
