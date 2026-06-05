@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   Users,
@@ -164,12 +165,12 @@ export default function DashboardPage() {
   }, [])
 
   const kpiData = [
-    { label: 'Total Pacientes', value: counts.totalPatients.toString(), icon: Users, trend: 'Real', trendUp: true, color: '#1e3a8a', bg: '#eff6ff', sub: 'Registradas en BD' },
-    { label: 'Embarazos Activos', value: counts.activePregnancies.toString(), icon: Baby, trend: 'Real', trendUp: true, color: '#0d9488', bg: '#f0fdfa', sub: 'En seguimiento' },
-    { label: 'Citas Hoy', value: counts.appointmentsToday.toString(), icon: CalendarCheck, trend: 'Real', trendUp: true, color: '#10b981', bg: '#f0fdf4', sub: 'Agendadas hoy' },
-    { label: 'Embarazos de Riesgo', value: counts.highRisk.toString(), icon: AlertTriangle, trend: 'Real', trendUp: false, color: '#ef4444', bg: '#fef2f2', sub: 'Requieren prioridad' },
-    { label: 'Referencias Activas', value: counts.referrals.toString(), icon: ArrowRightLeft, trend: 'Real', trendUp: true, color: '#f59e0b', bg: '#fffbeb', sub: 'Traslados en curso' },
-    { label: 'Ocupación de Camas', value: '14/20', icon: BedDouble, trend: 'Demo', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de unidad' },
+    { label: 'Total Pacientes', value: counts.totalPatients.toString(), icon: Users, trend: 'Real', trendUp: true, color: '#1e3a8a', bg: '#eff6ff', sub: 'Registradas en BD', href: '/patients' },
+    { label: 'Embarazos Activos', value: counts.activePregnancies.toString(), icon: Baby, trend: 'Real', trendUp: true, color: '#0d9488', bg: '#f0fdfa', sub: 'En seguimiento', href: '/patients' },
+    { label: 'Citas Hoy', value: counts.appointmentsToday.toString(), icon: CalendarCheck, trend: 'Real', trendUp: true, color: '#10b981', bg: '#f0fdf4', sub: 'Agendadas hoy', href: '/appointments' },
+    { label: 'Embarazos de Riesgo', value: counts.highRisk.toString(), icon: AlertTriangle, trend: 'Real', trendUp: false, color: '#ef4444', bg: '#fef2f2', sub: 'Requieren prioridad', href: '/patients' },
+    { label: 'Referencias Activas', value: counts.referrals.toString(), icon: ArrowRightLeft, trend: 'Real', trendUp: true, color: '#f59e0b', bg: '#fffbeb', sub: 'Traslados en curso', href: '/referrals' },
+    { label: 'Ocupación de Camas', value: '14/20', icon: BedDouble, trend: 'Demo', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de unidad', href: '/dashboard' },
   ]
 
   return (
@@ -202,8 +203,9 @@ export default function DashboardPage() {
               whileHover={{ y: -2, boxShadow: '0 8px 30px rgba(0,0,0,0.08)' }}
               transition={{ duration: 0.2 }}
             >
-              <Card className="glass-panel shadow-floating border-0 overflow-hidden cursor-pointer rounded-2xl h-full">
-                <CardContent className="p-6 flex flex-col justify-between h-full">
+              <Link href={kpi.href} className="block h-full">
+                <Card className="glass-panel shadow-floating border-0 overflow-hidden cursor-pointer rounded-2xl h-full transition-colors hover:border-primary/30">
+                  <CardContent className="p-6 flex flex-col justify-between h-full">
                   <div className="flex items-start justify-between mb-4">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                       style={{ background: kpi.bg }}
@@ -224,6 +226,7 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+              </Link>
             </motion.div>
           )
         })}
