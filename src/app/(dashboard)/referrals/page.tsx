@@ -125,7 +125,7 @@ export default function ReferralsPage() {
                   <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                     <User className="w-4 h-4" />
                   </div>
-                  <Select value={patientId} onValueChange={setPatientId} required>
+                  <Select value={patientId} onValueChange={(v) => setPatientId(v || '')} required>
                     <SelectTrigger id="patient" className="pl-14 py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
                       <SelectValue placeholder="Selecciona la paciente" />
                     </SelectTrigger>
@@ -141,7 +141,7 @@ export default function ReferralsPage() {
               {/* Destino */}
               <div className="space-y-2.5">
                 <Label htmlFor="destination" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Centro de Destino</Label>
-                <Select value={destination} onValueChange={setDestination} required>
+                <Select value={destination} onValueChange={(v) => setDestination(v || '')} required>
                   <SelectTrigger id="destination" className="py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
                     <SelectValue placeholder="Selecciona un hospital" />
                   </SelectTrigger>

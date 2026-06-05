@@ -148,7 +148,7 @@ export default function AppointmentsPage() {
                   <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                     <User className="w-4 h-4" />
                   </div>
-                  <Select value={patientId} onValueChange={setPatientId} required>
+                  <Select value={patientId} onValueChange={(v) => setPatientId(v || '')} required>
                     <SelectTrigger id="patient" className="pl-14 py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
                       <SelectValue placeholder="Selecciona la paciente" />
                     </SelectTrigger>
@@ -164,7 +164,7 @@ export default function AppointmentsPage() {
               {/* Doctor */}
               <div className="space-y-2.5">
                 <Label htmlFor="doctor" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Especialista</Label>
-                <Select value={doctor} onValueChange={setDoctor} required>
+                <Select value={doctor} onValueChange={(v) => setDoctor(v || '')} required>
                   <SelectTrigger id="doctor" className="py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
                     <SelectValue placeholder="Selecciona un médico" />
                   </SelectTrigger>
@@ -179,7 +179,7 @@ export default function AppointmentsPage() {
               {/* Tipo de cita */}
               <div className="space-y-2.5">
                 <Label htmlFor="type" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Motivo</Label>
-                <Select value={type} onValueChange={setType} required>
+                <Select value={type} onValueChange={(v) => setType(v || '')} required>
                   <SelectTrigger id="type" className="py-6 rounded-2xl bg-white/50 border-white/40 shadow-sm focus:ring-primary/20 text-base">
                     <SelectValue placeholder="Razón de la consulta" />
                   </SelectTrigger>

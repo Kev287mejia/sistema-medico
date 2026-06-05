@@ -22,7 +22,7 @@ const fadeInUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.08, duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+    transition: { delay: i * 0.08, duration: 0.5, ease: 'easeOut' as const },
   }),
 }
 
@@ -68,7 +68,7 @@ export default function LoginPage() {
           style={{ background: 'radial-gradient(circle, #10b981 0%, transparent 70%)' }} />
 
         <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
           className="relative z-10 flex items-center gap-3"
         >
           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -83,7 +83,7 @@ export default function LoginPage() {
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.8, delay: 0.2, ease: 'easeOut' }}
           className="relative z-10 space-y-6"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs text-emerald-300 font-medium"

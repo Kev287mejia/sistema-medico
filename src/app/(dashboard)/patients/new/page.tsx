@@ -21,7 +21,7 @@ const patientSchema = z.object({
   emergencyContact:     z.string().min(2, 'El contacto de emergencia es obligatorio'),
   emergencyPhone:       z.string().min(8, 'Teléfono de emergencia inválido'),
   bloodType:            z.string().min(1, 'Grupo sanguíneo obligatorio'),
-  previousPregnancies:  z.coerce.number().min(0),
+  previousPregnancies:  z.number().min(0),
   riskLevel:            z.string().min(1, 'Nivel de riesgo inicial obligatorio'),
 })
 
@@ -249,7 +249,7 @@ export default function NewPatientPage() {
                       </select>
                     </Field>
                     <Field label="Embarazos Previos (Gesta)" error={errors.previousPregnancies?.message}>
-                      <input {...register('previousPregnancies')} type="number" min={0} className={inputClass} />
+                      <input {...register('previousPregnancies', { valueAsNumber: true })} type="number" min={0} className={inputClass} />
                     </Field>
                     <div className="sm:col-span-2">
                       <Field label="Nivel de Riesgo Inicial Detectado" error={errors.riskLevel?.message}>

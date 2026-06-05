@@ -33,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={`${outfit.variable} ${fraunces.variable} font-sans antialiased`}>
-        <TooltipProvider delayDuration={300}>
+        <TooltipProvider delay={300}>
           {children}
           <Toaster richColors position="top-right" />
           <PwaRegister />
