@@ -160,7 +160,8 @@ export default function DashboardPage() {
       }
     }
     loadKPIs()
-  }, [supabase])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const kpiData = [
     { label: 'Total Pacientes', value: counts.totalPatients.toString(), icon: Users, trend: 'Real', trendUp: true, color: '#1e3a8a', bg: '#eff6ff', sub: 'Registradas en BD' },
