@@ -19,9 +19,10 @@ import { createClient } from '@/lib/supabase/client'
 interface TopbarProps {
   pageTitle?: string
   pageSubtitle?: string
+  profile?: any
 }
 
-export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
+export function Topbar({ pageTitle = 'Dashboard', pageSubtitle, profile }: TopbarProps) {
   const [darkMode, setDarkMode] = useState(false)
   const [isOnline] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
@@ -243,12 +244,16 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle }: TopbarProps) {
             <Avatar className="w-7 h-7">
               <AvatarImage src="" />
               <AvatarFallback className="text-xs font-semibold text-white" style={{ background: 'linear-gradient(135deg, #1e3a8a, #0d9488)' }}>
-                DM
+                {profile?.full_name ? profile.full_name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase() : 'US'}
               </AvatarFallback>
             </Avatar>
             <div className="hidden lg:block text-left">
-              <div className="text-xs font-semibold text-foreground leading-none">Dr. Médico</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">Médico</div>
+              <div className="text-xs font-semibold text-foreground leading-none truncate max-w-[120px]">
+                {profile?.full_name || 'Usuario'}
+              </div>
+              <div className="text-[10px] text-muted-foreground mt-0.5 capitalize">
+                {profile?.role === 'admin' ? 'Administrador' : profile?.role === 'doctor' ? 'Médico' : profile?.role === 'nurse' ? 'Enfermera' : 'Personal'}
+              </div>
             </div>
             <ChevronDown className="w-3 h-3 text-muted-foreground hidden lg:block" />
           </DropdownMenuTrigger>

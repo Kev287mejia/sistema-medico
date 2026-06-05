@@ -20,40 +20,62 @@ import {
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 
-const navItems = [
-  {
-    group: 'Principal',
-    items: [
-      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'Pacientes', href: '/patients', icon: Users },
-      { label: 'Control Prenatal', href: '/prenatal', icon: Baby },
-      { label: 'Citas', href: '/appointments', icon: CalendarDays },
-    ],
-  },
-  {
-    group: 'Gestión',
-    items: [
-      { label: 'Referencias', href: '/referrals', icon: ArrowRightLeft },
-      { label: 'Alertas de Riesgo', href: '/alerts', icon: AlertTriangle },
-      { label: 'Reportes', href: '/reports', icon: FileText },
-      { label: 'Analítica', href: '/analytics', icon: BarChart3 },
-    ],
-  },
-  {
-    group: 'Sistema',
-    items: [
-      { label: 'Configuración', href: '/settings', icon: Settings },
-    ],
-  },
-]
+const getAllNavItems = (role?: string) => {
+  const items = [
+    {
+      group: 'Principal',
+      items: [
+        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+        { label: 'Pacientes', href: '/patients', icon: Users },
+        { label: 'Control Prenatal', href: '/prenatal', icon: Baby },
+        { label: 'Citas', href: '/appointments', icon: CalendarDays },
+      ],
+    },
+    {
+      group: 'Gestión',
+      items: [
+        { label: 'Referencias', href: '/referrals', icon: ArrowRightLeft },
+        { label: 'Alertas de Riesgo', href: '/alerts', icon: AlertTriangle },
+        { label: 'Reportes', href: '/reports', icon: FileText },
+      ],
+    },
+  ]
+
+  // Add Analytics and Settings only for Admins and Doctors
+  if (role === 'admin' || role === 'doctor') {
+    items[1].items.push({ label: 'Analítica', href: '/analytics', icon: BarChart3 })
+    items.push({
+      group: 'Sistema',
+      items: [
+        { label: 'Configuración', href: '/settings', icon: Settings },
+      ],
+    })
+  } else {
+    // For nurses, maybe give them settings but hide some tabs inside Settings, or just keep them out of Settings altogether. 
+    // Wait, nurses still need to change their own password or see their profile.
+    // So let's include Configuración for everyone, but we'll restrict Analytics.
+    items.push({
+      group: 'Sistema',
+      items: [
+        { label: 'Configuración', href: '/settings', icon: Settings },
+      ],
+    })
+  }
+
+  return items
+}
+
 
 interface SidebarProps {
   className?: string
+  role?: string
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, role }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const pathname = usePathname()
+  
+  const navItems = getAllNavItems(role)
 
   return (
     <motion.aside
