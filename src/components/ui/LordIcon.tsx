@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 
 interface LordIconProps {
   src: string
@@ -19,7 +19,10 @@ declare global {
 }
 
 export function LordIcon({ src, trigger = 'hover', colors = 'primary:#1e3a8a,secondary:#0d9488', size = 24, className }: LordIconProps) {
+  const [isMounted, setIsMounted] = useState(false)
+
   useEffect(() => {
+    setIsMounted(true)
     // Import the lordicon script dynamically if not loaded
     if (typeof window !== 'undefined' && !document.querySelector('script#lordicon-script')) {
       const script = document.createElement('script')
@@ -29,6 +32,10 @@ export function LordIcon({ src, trigger = 'hover', colors = 'primary:#1e3a8a,sec
       document.body.appendChild(script)
     }
   }, [])
+
+  if (!isMounted) {
+    return <div style={{ width: size, height: size }} className={className} />
+  }
 
   return (
     <lord-icon

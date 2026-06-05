@@ -152,7 +152,7 @@ export default function DashboardPage() {
       if (apptData) {
         setAppointmentsList(apptData.map(a => ({
           patient: `${(a.patients as any)?.first_name || ''} ${(a.patients as any)?.last_name || ''}`.trim(),
-          time: a.appointment_time.substring(0, 5),
+          time: (a.appointment_time || '').substring(0, 5),
           type: a.type === 'prenatal_control' ? 'Control Prenatal' : a.type === 'ultrasound' ? 'Ultrasonido' : 'General',
           doctor: (a.profiles as any)?.full_name || 'Sin asignar',
           status: a.status === 'completed' ? 'attended' : a.status === 'cancelled' ? 'cancelled' : 'pending'

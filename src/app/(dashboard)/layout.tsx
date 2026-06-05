@@ -15,7 +15,6 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex h-screen overflow-hidden bg-background grain-bg">
-      <SyncInitializer />
       {/* Sidebar */}
       <Sidebar role={profile?.role} />
 
