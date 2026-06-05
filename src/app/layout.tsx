@@ -32,6 +32,21 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                  for(let registration of registrations) {
+                    registration.unregister();
+                  }
+                });
+              }
+            `
+          }}
+        />
+      </head>
       <body className={`${outfit.variable} ${fraunces.variable} font-sans antialiased`}>
         <TooltipProvider delay={300}>
           {children}
