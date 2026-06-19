@@ -40,6 +40,7 @@ export default function SettingsPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [userId, setUserId] = useState('')
+  const [userRole, setUserRole] = useState('nurse')
   
   const [formData, setFormData] = useState({
     full_name: '',
@@ -65,6 +66,7 @@ export default function SettingsPage() {
         setUserId(user.id)
         const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single()
         if (data) {
+          setUserRole(data.role || 'nurse')
           setFormData({
             full_name: data.full_name || '',
             license_number: data.license_number || '',
@@ -125,6 +127,10 @@ export default function SettingsPage() {
       setIsNotificationsOpen(true)
       fetchUpcomingAppointments()
     } else if (title === 'Seguridad y Accesos') {
+      if (userRole !== 'admin') {
+        toast.error('Acceso denegado. Solo administradores pueden gestionar el personal.')
+        return
+      }
       setIsStaffOpen(true)
       setIsAddingStaff(false)
       fetchStaff()
@@ -205,7 +211,10 @@ export default function SettingsPage() {
       </div>
 
       <div className="space-y-3">
-        {sections.map((section, i) => {
+        {sections.filter(section => {
+          if (section.title === 'Seguridad y Accesos' && userRole !== 'admin') return false
+          return true
+        }).map((section, i) => {
           const Icon = section.icon
           return (
             <div key={i}
