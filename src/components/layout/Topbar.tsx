@@ -94,7 +94,10 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle, profile }: Topba
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
-    window.location.href = '/login'
+    router.replace('/login')
+    setTimeout(() => {
+      window.location.reload()
+    }, 100)
   }
 
   const toggleDark = async () => {
