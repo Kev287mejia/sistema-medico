@@ -112,6 +112,7 @@ export default function NewPatientPage() {
       .single()
 
     if (patientError || !patientData) {
+      console.error('Error inserting patient:', patientError)
       toast.error('Error al registrar paciente')
       setIsSubmitting(false)
       return
@@ -131,6 +132,7 @@ export default function NewPatientPage() {
       .single()
 
     if (pregnancyError || !pregnancyData) {
+      console.error('Error inserting pregnancy:', pregnancyError)
       toast.error('Error al registrar datos obstétricos')
       setIsSubmitting(false)
       return
@@ -151,6 +153,7 @@ export default function NewPatientPage() {
       })
 
     if (controlError) {
+      console.error('Error in prenatal_controls insert:', controlError)
       toast.error('Error al registrar el control prenatal inicial')
       setIsSubmitting(false)
       return
