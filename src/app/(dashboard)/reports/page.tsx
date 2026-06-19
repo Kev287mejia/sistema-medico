@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Download, Calendar, Users, Baby, BarChart3, Loader2 } from 'lucide-react'
+import { FileText, Download, Calendar, Users, Baby, BarChart3, Loader2, Bed, AlertTriangle } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -11,6 +11,8 @@ const reportTypes = [
   { icon: Baby, title: 'Controles Prenatales', description: 'Resumen estadístico de todos los controles prenatales realizados.', color: '#0d9488' },
   { icon: BarChart3, title: 'Indicadores Perinatales', description: 'Tasas de mortalidad, morbilidad materna e indicadores MINSA.', color: '#10b981' },
   { icon: FileText, title: 'Expedientes Completos', description: 'Exportar la matriz consolidada de expedientes con su historial activo en CSV.', color: '#7c3aed' },
+  { icon: Bed, title: 'Camas Ocupadas', description: 'Reporte de pacientes actualmente ingresadas en el centro médico.', color: '#ea580c' },
+  { icon: AlertTriangle, title: 'Embarazos de Riesgo', description: 'Listado de embarazos activos clasificados con nivel de riesgo medio o alto.', color: '#dc2626' },
 ]
 
 export default function ReportsPage() {
@@ -251,6 +253,109 @@ export default function ReportsPage() {
     }
   }
 
+  const generateBedsReport = async () => {
+    setIsGenerating(true)
+    try {
+      let query = supabase
+        .from('admissions')
+        .select(`
+          *,
+          patients (mrn, first_name, last_name)
+        `)
+        .eq('status', 'admitted')
+        .order('admission_date', { ascending: false })
+      
+      const { data, error } = await query
+      if (error) throw error
+      
+      const headers = ['Expediente', 'Paciente', 'Cama', 'Motivo', 'Fecha de Admision']
+      const rows = data.map((a: any) => [
+        a.patients?.mrn,
+        `${a.patients?.first_name} ${a.patients?.last_name}`,
+        a.bed_number || 'N/A',
+        a.reason || 'N/A',
+        new Date(a.admission_date).toLocaleString()
+      ])
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(e => e.map(String).map(s => `"${s.replace(/"/g, '""')}"`).join(','))
+      ].join('\n')
+      
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF])
+      const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' })
+      
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `Camas_Ocupadas_SIACEM_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success('Reporte de Camas Ocupadas descargado exitosamente')
+    } catch (err) {
+      toast.error('Error al generar el reporte')
+      console.error(err)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const generateRiskPregnanciesReport = async () => {
+    setIsGenerating(true)
+    try {
+      let query = supabase
+        .from('pregnancies')
+        .select(`
+          *,
+          patients (mrn, first_name, last_name, phone_number, community)
+        `)
+        .eq('is_active', true)
+        .in('risk_level', ['medium', 'high'])
+        .order('created_at', { ascending: false })
+      
+      const { data, error } = await query
+      if (error) throw error
+      
+      const headers = ['Expediente', 'Paciente', 'Comunidad', 'Telefono', 'Nivel de Riesgo', 'Factores de Riesgo', 'FPP']
+      const rows = data.map((p: any) => [
+        p.patients?.mrn,
+        `${p.patients?.first_name} ${p.patients?.last_name}`,
+        p.patients?.community || 'N/A',
+        p.patients?.phone_number || 'N/A',
+        p.risk_level === 'high' ? 'ALTO' : 'MEDIO',
+        p.risk_factors ? p.risk_factors.join('; ') : 'N/A',
+        p.edd || 'N/A'
+      ])
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(e => e.map(String).map(s => `"${s.replace(/"/g, '""')}"`).join(','))
+      ].join('\n')
+      
+      const bom = new Uint8Array([0xEF, 0xBB, 0xBF])
+      const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' })
+      
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `Embarazos_Riesgo_SIACEM_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success('Reporte de Embarazos de Riesgo descargado exitosamente')
+    } catch (err) {
+      toast.error('Error al generar el reporte')
+      console.error(err)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   const handleReportClick = (title: string) => {
     if (title === 'Reporte de Pacientes') {
       generatePatientsReport()
@@ -260,6 +365,10 @@ export default function ReportsPage() {
       generateIndicatorsReport()
     } else if (title === 'Expedientes Completos') {
       generateMasterReport()
+    } else if (title === 'Camas Ocupadas') {
+      generateBedsReport()
+    } else if (title === 'Embarazos de Riesgo') {
+      generateRiskPregnanciesReport()
     } else {
       toast.info('Este reporte estará disponible próximamente.')
     }
@@ -294,7 +403,7 @@ export default function ReportsPage() {
                       style={{ color: report.color }}
                       disabled={isGenerating}
                     >
-                      {isGenerating && (report.title === 'Reporte de Pacientes' || report.title === 'Controles Prenatales' || report.title === 'Indicadores Perinatales' || report.title === 'Expedientes Completos') ? (
+                      {isGenerating ? (
                         <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Procesando...</>
                       ) : (
                         <><Download className="w-3.5 h-3.5" /> Generar Reporte</>

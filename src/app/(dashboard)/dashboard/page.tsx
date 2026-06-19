@@ -107,6 +107,8 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 }
 
 export default function DashboardPage() {
+  const [userRole, setUserRole] = useState<string | null>(null)
+  const [isLoadingRole, setIsLoadingRole] = useState(true)
   const [counts, setCounts] = useState({
     totalPatients: 0,
     activePregnancies: 0,
@@ -121,6 +123,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function loadKPIs() {
+      // Fetch role
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        setUserRole(profile?.role || 'admin')
+      } else {
+        setUserRole('admin')
+      }
+      setIsLoadingRole(false)
+
       const today = new Date().toISOString().split('T')[0]
       const [pRes, prRes, riskRes, refRes, apptRes, bedsRes] = await Promise.all([
         supabase.from('patients').select('*', { count: 'exact', head: true }).is('deleted_at', null),
@@ -167,14 +179,29 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const kpiData = [
-    { label: 'Total Pacientes', value: counts.totalPatients.toString(), icon: Users, trend: 'Real', trendUp: true, color: '#1e3a8a', bg: '#eff6ff', sub: 'Registradas en BD', href: '/patients' },
-    { label: 'Embarazos Activos', value: counts.activePregnancies.toString(), icon: Baby, trend: 'Real', trendUp: true, color: '#0d9488', bg: '#f0fdfa', sub: 'En seguimiento', href: '/patients' },
-    { label: 'Citas Hoy', value: counts.appointmentsToday.toString(), icon: CalendarCheck, trend: 'Real', trendUp: true, color: '#10b981', bg: '#f0fdf4', sub: 'Agendadas hoy', href: '/appointments' },
-    { label: 'Embarazos de Riesgo', value: counts.highRisk.toString(), icon: AlertTriangle, trend: 'Real', trendUp: false, color: '#ef4444', bg: '#fef2f2', sub: 'Requieren prioridad', href: '/patients' },
-    { label: 'Referencias Activas', value: counts.referrals.toString(), icon: ArrowRightLeft, trend: 'Real', trendUp: true, color: '#f59e0b', bg: '#fffbeb', sub: 'Traslados en curso', href: '/referrals' },
-    { label: 'Ocupación de Camas', value: `${counts.occupiedBeds}/20`, icon: BedDouble, trend: 'Real', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de unidad', href: '/admissions' },
+  if (isLoadingRole) {
+    return <div className="p-8 text-center text-muted-foreground flex items-center justify-center h-[50vh]">Cargando dashboard...</div>
+  }
+
+  const allKPIs = [
+    { id: 'total', label: 'Total Pacientes', value: counts.totalPatients.toString(), icon: Users, trend: 'Real', trendUp: true, color: '#1e3a8a', bg: '#eff6ff', sub: 'Registradas en BD', href: '/patients' },
+    { id: 'active', label: 'Embarazos Activos', value: counts.activePregnancies.toString(), icon: Baby, trend: 'Real', trendUp: true, color: '#0d9488', bg: '#f0fdfa', sub: 'En seguimiento', href: '/patients' },
+    { id: 'appointments', label: 'Citas Hoy', value: counts.appointmentsToday.toString(), icon: CalendarCheck, trend: 'Real', trendUp: true, color: '#10b981', bg: '#f0fdf4', sub: 'Agendadas hoy', href: '/appointments' },
+    { id: 'risk', label: 'Embarazos de Riesgo', value: counts.highRisk.toString(), icon: AlertTriangle, trend: 'Real', trendUp: false, color: '#ef4444', bg: '#fef2f2', sub: 'Requieren prioridad', href: '/patients' },
+    { id: 'referrals', label: 'Referencias Activas', value: counts.referrals.toString(), icon: ArrowRightLeft, trend: 'Real', trendUp: true, color: '#f59e0b', bg: '#fffbeb', sub: 'Traslados en curso', href: '/referrals' },
+    { id: 'beds', label: 'Ocupación de Camas', value: `${counts.occupiedBeds}/20`, icon: BedDouble, trend: 'Real', trendUp: true, color: '#0891b2', bg: '#ecfeff', sub: 'Capacidad de unidad', href: '/admissions' },
   ]
+
+  let visibleKPIs = allKPIs
+  if (userRole === 'doctor') visibleKPIs = allKPIs.filter(k => ['appointments', 'risk', 'active', 'beds'].includes(k.id))
+  if (userRole === 'nurse') visibleKPIs = allKPIs.filter(k => ['active', 'risk', 'referrals', 'beds'].includes(k.id))
+  if (userRole === 'reception') visibleKPIs = allKPIs.filter(k => ['total', 'appointments', 'beds'].includes(k.id))
+
+  const showMonthlyChart = ['admin', 'supervisor', 'statistics', 'doctor'].includes(userRole || '')
+  const showRiskDistribution = ['admin', 'supervisor', 'statistics', 'doctor', 'nurse'].includes(userRole || '')
+  const showAlerts = ['admin', 'doctor', 'nurse', 'supervisor'].includes(userRole || '')
+  const showAppointments = ['admin', 'doctor', 'reception'].includes(userRole || '')
+  const showCommunityChart = ['admin', 'supervisor', 'statistics'].includes(userRole || '')
 
   return (
     <motion.div
@@ -186,9 +213,14 @@ export default function DashboardPage() {
       {/* ── Header ── */}
       <motion.div variants={itemVariants} className="flex items-start justify-between flex-wrap gap-4 mb-4">
         <div>
-          <h1 className="text-3xl font-bold font-heading text-foreground">Dashboard Ejecutivo</h1>
+          <h1 className="text-3xl font-bold font-heading text-foreground">
+            {userRole === 'doctor' && 'Panel Médico'}
+            {userRole === 'nurse' && 'Panel de Enfermería'}
+            {userRole === 'reception' && 'Panel de Recepción'}
+            {['admin', 'supervisor', 'statistics'].includes(userRole || '') && 'Dashboard Ejecutivo'}
+          </h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Casa Materna Cecilia Lizario · Waspam Río Coco · Datos Reales
+            Casa Materna Cecilia Lizario · Waspam Río Coco
           </p>
         </div>
       </motion.div>
@@ -198,7 +230,7 @@ export default function DashboardPage() {
         variants={itemVariants}
         className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4"
       >
-        {kpiData.map((kpi) => {
+        {visibleKPIs.map((kpi) => {
           const Icon = kpi.icon
           return (
             <motion.div
@@ -236,9 +268,11 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* ── Charts Row ── */}
+      {(showMonthlyChart || showRiskDistribution) && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Monthly Chart */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
+        {showMonthlyChart && (
+        <motion.div variants={itemVariants} className={showRiskDistribution ? "lg:col-span-2" : "lg:col-span-3"}>
           <Card className="glass-panel shadow-floating border-0 rounded-3xl h-full">
             <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
@@ -283,9 +317,11 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </motion.div>
+        )}
 
         {/* Risk Distribution */}
-        <motion.div variants={itemVariants}>
+        {showRiskDistribution && (
+        <motion.div variants={itemVariants} className={showMonthlyChart ? "" : "lg:col-span-3"}>
           <Card className="glass-panel shadow-floating border-0 rounded-3xl h-full">
             <CardHeader className="pb-4 pt-6 px-6">
               <CardTitle className="text-lg font-bold font-heading">Distribución de Riesgo</CardTitle>
@@ -326,12 +362,16 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </motion.div>
+        )}
       </div>
+      )}
 
       {/* ── Bottom Row ── */}
+      {(showAlerts || showAppointments) && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Alerts */}
-        <motion.div variants={itemVariants} className="lg:col-span-2">
+        {showAlerts && (
+        <motion.div variants={itemVariants} className={showAppointments ? "lg:col-span-2" : "lg:col-span-3"}>
           <Card className="glass-panel shadow-floating border-0 rounded-3xl">
             <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
@@ -381,9 +421,11 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </motion.div>
+        )}
 
         {/* Today Appointments */}
-        <motion.div variants={itemVariants}>
+        {showAppointments && (
+        <motion.div variants={itemVariants} className={showAlerts ? "" : "lg:col-span-3"}>
           <Card className="glass-panel shadow-floating border-0 rounded-3xl h-full">
             <CardHeader className="pb-4 pt-6 px-6">
               <div className="flex items-center justify-between">
@@ -416,9 +458,12 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </motion.div>
+        )}
       </div>
+      )}
 
       {/* ── Community Chart ── */}
+      {showCommunityChart && (
       <motion.div variants={itemVariants}>
         <Card className="glass-panel shadow-floating border-0 rounded-3xl mb-8">
           <CardHeader className="pb-4 pt-6 px-6">
@@ -446,6 +491,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </motion.div>
+      )}
     </motion.div>
   )
 }

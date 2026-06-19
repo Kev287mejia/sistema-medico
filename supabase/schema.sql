@@ -18,6 +18,7 @@ CREATE TYPE referral_status AS ENUM ('pending', 'in_progress', 'completed', 'can
 CREATE TYPE admission_status AS ENUM ('admitted', 'discharged');
 CREATE TYPE blood_type AS ENUM ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-', 'unknown');
 CREATE TYPE audit_action_type AS ENUM ('INSERT', 'UPDATE', 'DELETE');
+CREATE TYPE alert_severity AS ENUM ('info', 'warning', 'critical');
 
 -- ==========================================
 -- 2. TABLAS PRINCIPALES
@@ -152,6 +153,19 @@ CREATE TABLE public.audit_logs (
     changed_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Tabla: alertas médicas (Notificaciones automáticas)
+CREATE TABLE public.alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    patient_id UUID NOT NULL REFERENCES public.patients(id) ON DELETE CASCADE,
+    pregnancy_id UUID REFERENCES public.pregnancies(id) ON DELETE CASCADE,
+    severity alert_severity DEFAULT 'info'::alert_severity NOT NULL,
+    message TEXT NOT NULL,
+    is_resolved BOOLEAN DEFAULT false,
+    resolved_at TIMESTAMPTZ,
+    resolved_by UUID REFERENCES public.profiles(id),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ==========================================
 -- 3. TRIGGERS PARA UPDATED_AT
 -- ==========================================
@@ -173,6 +187,35 @@ CREATE TRIGGER update_prenatal_controls_updated_at BEFORE UPDATE ON public.prena
 CREATE TRIGGER update_appointments_updated_at BEFORE UPDATE ON public.appointments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_referrals_updated_at BEFORE UPDATE ON public.referrals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_admissions_updated_at BEFORE UPDATE ON public.admissions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Función y Trigger para Alertas de Riesgo en Controles Prenatales
+CREATE OR REPLACE FUNCTION check_prenatal_risk()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- Evaluar presión arterial alta (Sistólica >= 140 o Diastólica >= 90)
+    IF NEW.blood_pressure_systolic >= 140 OR NEW.blood_pressure_diastolic >= 90 THEN
+        INSERT INTO public.alerts (patient_id, pregnancy_id, severity, message)
+        VALUES (
+            NEW.patient_id,
+            NEW.pregnancy_id,
+            'critical'::alert_severity,
+            'Presión arterial ' || NEW.blood_pressure_systolic || '/' || NEW.blood_pressure_diastolic || ' mmHg detectada. Evaluación urgente requerida.'
+        );
+        
+        -- Actualizar el embarazo a riesgo alto automáticamente
+        UPDATE public.pregnancies 
+        SET risk_level = 'high'::risk_level 
+        WHERE id = NEW.pregnancy_id AND risk_level != 'high';
+    END IF;
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_check_prenatal_risk 
+AFTER INSERT OR UPDATE OF blood_pressure_systolic, blood_pressure_diastolic 
+ON public.prenatal_controls 
+FOR EACH ROW EXECUTE FUNCTION check_prenatal_risk();
 
 -- Función de Auditoría
 CREATE OR REPLACE FUNCTION log_audit_event()
@@ -229,6 +272,7 @@ ALTER TABLE public.prenatal_controls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.appointments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
 
 -- Políticas para Profiles
 -- Los usuarios pueden leer todos los perfiles de la institución, pero solo pueden editar el suyo (a menos que sean admins).
@@ -265,6 +309,10 @@ CREATE POLICY "Referrals updatable by staff" ON public.referrals FOR UPDATE USIN
 CREATE POLICY "Admissions viewable by authenticated" ON public.admissions FOR SELECT USING (auth.role() = 'authenticated');
 CREATE POLICY "Admissions insertable by staff" ON public.admissions FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Admissions updatable by staff" ON public.admissions FOR UPDATE USING (auth.role() = 'authenticated');
+
+-- Políticas para Alerts
+CREATE POLICY "Alerts viewable by authenticated" ON public.alerts FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Alerts updatable by staff" ON public.alerts FOR UPDATE USING (auth.role() = 'authenticated');
 
 -- Políticas para Audit Logs
 ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;

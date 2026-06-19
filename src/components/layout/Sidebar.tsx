@@ -21,44 +21,97 @@ import {
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 export const getAllNavItems = (role?: string) => {
-  const items = [
-    {
-      group: 'Principal',
-      items: [
-        { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  const mainItems: any[] = [
+    { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard }
+  ]
+  const gestionItems: any[] = []
+  const systemItems: any[] = []
+
+  switch (role) {
+    case 'admin':
+      mainItems.push(
         { label: 'Pacientes', href: '/patients', icon: Users },
         { label: 'Control Prenatal', href: '/prenatal', icon: Baby },
-        { label: 'Citas', href: '/appointments', icon: CalendarDays },
-      ],
-    },
-    {
-      group: 'Gestión',
-      items: [
+        { label: 'Citas', href: '/appointments', icon: CalendarDays }
+      )
+      gestionItems.push(
         { label: 'Camas', href: '/admissions', icon: BedDouble },
         { label: 'Referencias', href: '/referrals', icon: ArrowRightLeft },
         { label: 'Alertas de Riesgo', href: '/alerts', icon: AlertTriangle },
         { label: 'Reportes', href: '/reports', icon: FileText },
-      ],
-    },
-  ]
+        { label: 'Analítica', href: '/analytics', icon: BarChart3 }
+      )
+      systemItems.push({ label: 'Configuración', href: '/settings', icon: Settings })
+      break
 
-  // Add Analytics and Settings only for Admins and Doctors
-  if (role === 'admin' || role === 'doctor') {
-    items[1].items.push({ label: 'Analítica', href: '/analytics', icon: BarChart3 })
-    items.push({
-      group: 'Sistema',
-      items: [
-        { label: 'Configuración', href: '/settings', icon: Settings },
-      ],
-    })
-  } else {
-    items.push({
-      group: 'Sistema',
-      items: [
-        { label: 'Configuración', href: '/settings', icon: Settings },
-      ],
-    })
+    case 'doctor':
+      mainItems.push(
+        { label: 'Pacientes', href: '/patients', icon: Users },
+        { label: 'Control Prenatal', href: '/prenatal', icon: Baby },
+        { label: 'Citas', href: '/appointments', icon: CalendarDays }
+      )
+      gestionItems.push(
+        { label: 'Camas', href: '/admissions', icon: BedDouble },
+        { label: 'Alertas Médicas', href: '/alerts', icon: AlertTriangle },
+        { label: 'Analítica Clínica', href: '/analytics', icon: BarChart3 }
+      )
+      systemItems.push({ label: 'Mi Perfil', href: '/settings', icon: Settings })
+      break
+
+    case 'nurse':
+      mainItems.push(
+        { label: 'Pacientes', href: '/patients', icon: Users },
+        { label: 'Control Prenatal', href: '/prenatal', icon: Baby }
+      )
+      gestionItems.push(
+        { label: 'Camas', href: '/admissions', icon: BedDouble },
+        { label: 'Referencias', href: '/referrals', icon: ArrowRightLeft },
+        { label: 'Triage y Alertas', href: '/alerts', icon: AlertTriangle }
+      )
+      systemItems.push({ label: 'Mi Perfil', href: '/settings', icon: Settings })
+      break
+
+    case 'reception':
+      mainItems.push(
+        { label: 'Pacientes', href: '/patients', icon: Users },
+        { label: 'Citas', href: '/appointments', icon: CalendarDays }
+      )
+      systemItems.push({ label: 'Mi Perfil', href: '/settings', icon: Settings })
+      break
+
+    case 'supervisor':
+      gestionItems.push(
+        { label: 'Alertas Globales', href: '/alerts', icon: AlertTriangle },
+        { label: 'Reportes', href: '/reports', icon: FileText },
+        { label: 'Analítica', href: '/analytics', icon: BarChart3 }
+      )
+      systemItems.push({ label: 'Configuración', href: '/settings', icon: Settings })
+      break
+
+    case 'statistics':
+      mainItems.push(
+        { label: 'Pacientes', href: '/patients', icon: Users }
+      )
+      gestionItems.push(
+        { label: 'Reportes', href: '/reports', icon: FileText },
+        { label: 'Analítica', href: '/analytics', icon: BarChart3 }
+      )
+      systemItems.push({ label: 'Mi Perfil', href: '/settings', icon: Settings })
+      break
+
+    default:
+      // Fallback básico
+      mainItems.push(
+        { label: 'Pacientes', href: '/patients', icon: Users }
+      )
+      systemItems.push({ label: 'Configuración', href: '/settings', icon: Settings })
+      break
   }
+
+  const items = []
+  if (mainItems.length > 0) items.push({ group: 'Principal', items: mainItems })
+  if (gestionItems.length > 0) items.push({ group: 'Gestión', items: gestionItems })
+  if (systemItems.length > 0) items.push({ group: 'Sistema', items: systemItems })
 
   return items
 }

@@ -14,7 +14,10 @@ import {
   Plus,
   Stethoscope,
   HeartPulse,
-  Scale
+  Scale,
+  LogIn,
+  CheckCircle,
+  Bed
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -47,6 +50,7 @@ export default function PatientDetailsPage() {
   const [patientData, setPatientData] = useState<any>(null)
   const [pregnancy, setPregnancy] = useState<any>(null)
   const [controls, setControls] = useState<any[]>([])
+  const [timelineEvents, setTimelineEvents] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -85,6 +89,16 @@ export default function PatientDetailsPage() {
       if (pData) {
         setPatientData(pData)
         
+        let events: any[] = []
+        // Registro inicial
+        events.push({
+          id: `reg-${pData.id}`,
+          date: new Date(pData.created_at).toISOString(),
+          type: 'registration',
+          title: 'Registro de Expediente',
+          description: `Paciente ingresada al sistema. Comunidad: ${pData.community}`,
+        })
+
         const { data: prData } = await supabase.from('pregnancies')
           .select('*')
           .eq('patient_id', patientId)
@@ -95,12 +109,63 @@ export default function PatientDetailsPage() {
           
         if (prData) {
           setPregnancy(prData)
+          
+          events.push({
+            id: `preg-${prData.id}`,
+            date: new Date(prData.created_at).toISOString(),
+            type: 'pregnancy',
+            title: 'Inicio de Embarazo Activo',
+            description: `Riesgo inicial: ${prData.risk_level === 'high' ? 'Alto' : prData.risk_level === 'medium' ? 'Medio' : 'Bajo'}`,
+          })
+
           const { data: ctrlData } = await supabase.from('prenatal_controls')
             .select('*')
             .eq('pregnancy_id', prData.id)
             .order('control_date', { ascending: true })
-          if (ctrlData) setControls(ctrlData)
+          if (ctrlData) {
+            setControls(ctrlData)
+            ctrlData.forEach(ctrl => {
+              events.push({
+                id: `ctrl-${ctrl.id}`,
+                date: new Date(ctrl.created_at).toISOString(),
+                type: 'control',
+                title: `Control Prenatal - Sem ${ctrl.gestational_weeks}`,
+                description: `PA: ${ctrl.blood_pressure_systolic}/${ctrl.blood_pressure_diastolic} | Peso: ${ctrl.weight_kg}kg | FCF: ${ctrl.fetal_heart_rate || '--'} bpm`,
+              })
+            })
+          }
         }
+
+        // Fetch alertas
+        const { data: alertsData } = await supabase.from('alerts').select('*').eq('patient_id', patientId)
+        if (alertsData) {
+          alertsData.forEach(alert => {
+            events.push({
+              id: `alert-${alert.id}`,
+              date: new Date(alert.created_at).toISOString(),
+              type: 'alert',
+              title: `Alerta: ${alert.severity === 'critical' ? 'Crítica' : alert.severity === 'warning' ? 'Advertencia' : 'Informativa'}`,
+              description: alert.message,
+            })
+          })
+        }
+
+        // Fetch admisiones
+        const { data: admissionsData } = await supabase.from('admissions').select('*').eq('patient_id', patientId)
+        if (admissionsData) {
+          admissionsData.forEach(adm => {
+            events.push({
+              id: `adm-${adm.id}`,
+              date: new Date(adm.admission_date).toISOString(),
+              type: 'admission',
+              title: `Admisión Hospitalaria (Cama ${adm.bed_number || 'N/A'})`,
+              description: `Motivo: ${adm.reason}`,
+            })
+          })
+        }
+
+        events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        setTimelineEvents(events)
       }
       setIsLoading(false)
     }
@@ -400,9 +465,44 @@ export default function PatientDetailsPage() {
             </TabsContent>
 
             <TabsContent value="historial">
-              <div className="glass-panel shadow-soft border-0 p-12 rounded-3xl text-center text-muted-foreground">
-                <Clock className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                <p>Historial de atenciones anteriores en construcción...</p>
+              <div className="glass-panel shadow-soft border-0 p-6 sm:p-8 rounded-3xl">
+                <h2 className="text-xl font-bold font-heading text-foreground mb-8">Línea de Tiempo Clínica</h2>
+                
+                <div className="space-y-6 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-border before:to-transparent">
+                  {timelineEvents.map((event, i) => {
+                    let Icon = Activity
+                    let bg = 'bg-primary/10 text-primary'
+                    if (event.type === 'registration') { Icon = LogIn; bg = 'bg-blue-100 text-blue-600' }
+                    else if (event.type === 'pregnancy') { Icon = Baby; bg = 'bg-indigo-100 text-indigo-600' }
+                    else if (event.type === 'alert') { Icon = AlertTriangle; bg = 'bg-red-100 text-red-600' }
+                    else if (event.type === 'admission') { Icon = Bed; bg = 'bg-amber-100 text-amber-600' }
+                    
+                    return (
+                      <div key={event.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-background shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 shadow-sm z-10" style={{ backgroundColor: 'white' }}>
+                          <div className={`w-full h-full rounded-full flex items-center justify-center ${bg}`}>
+                            <Icon className="w-4 h-4" />
+                          </div>
+                        </div>
+                        <div className="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] p-4 rounded-2xl glass-panel shadow-soft border-0 transition-all hover:shadow-md">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-sm text-foreground">{event.title}</span>
+                            <time className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                              {new Date(event.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute:'2-digit' })}
+                            </time>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{event.description}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {timelineEvents.length === 0 && (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Clock className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                    <p>No hay eventos registrados en el historial.</p>
+                  </div>
+                )}
               </div>
             </TabsContent>
           </Tabs>
