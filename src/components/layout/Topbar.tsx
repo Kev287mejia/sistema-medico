@@ -92,7 +92,8 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle, profile }: Topba
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
     router.push('/login')
   }
 
@@ -315,8 +316,8 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle, profile }: Topba
             <DropdownMenuGroup>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium">Dr. Médico</p>
-                  <p className="text-xs text-muted-foreground">medico@casamaterna.ni</p>
+                  <p className="text-sm font-medium">{profile?.full_name || 'Usuario'}</p>
+                  <p className="text-xs text-muted-foreground">{profile?.email || 'No email'}</p>
                 </div>
               </DropdownMenuLabel>
             </DropdownMenuGroup>
