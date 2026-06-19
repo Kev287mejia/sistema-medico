@@ -23,6 +23,10 @@ const patientSchema = z.object({
   bloodType:            z.string().min(1, 'Grupo sanguíneo obligatorio'),
   previousPregnancies:  z.number().min(0),
   riskLevel:            z.string().min(1, 'Nivel de riesgo inicial obligatorio'),
+  weight:               z.number().min(20, 'Peso requerido (> 20 kg)'),
+  bloodPressureSystolic:  z.number().min(50, 'Requerida'),
+  bloodPressureDiastolic: z.number().min(30, 'Requerida'),
+  gestationalWeeks:       z.number().min(0, 'Semanas requeridas'),
 })
 
 type PatientFormValues = z.infer<typeof patientSchema>
@@ -67,7 +71,7 @@ export default function NewPatientPage() {
   const stepFields: Record<number, (keyof PatientFormValues)[]> = {
     1: ['firstName', 'lastName', 'cedula', 'birthDate', 'community'],
     2: ['phone', 'emergencyContact', 'emergencyPhone'],
-    3: ['bloodType', 'previousPregnancies', 'riskLevel'],
+    3: ['bloodType', 'previousPregnancies', 'riskLevel', 'weight', 'bloodPressureSystolic', 'bloodPressureDiastolic', 'gestationalWeeks'],
   }
 
   const nextStep = async () => {
@@ -114,7 +118,7 @@ export default function NewPatientPage() {
     }
 
     // Insert Pregnancy
-    const { error: pregnancyError } = await supabase
+    const { data: pregnancyData, error: pregnancyError } = await supabase
       .from('pregnancies')
       .insert({
         patient_id: patientData.id,
@@ -123,9 +127,31 @@ export default function NewPatientPage() {
         risk_level: data.riskLevel as any,
         created_by: user?.id
       })
+      .select()
+      .single()
 
-    if (pregnancyError) {
+    if (pregnancyError || !pregnancyData) {
       toast.error('Error al registrar datos obstétricos')
+      setIsSubmitting(false)
+      return
+    }
+
+    // Insert Initial Prenatal Control
+    const { error: controlError } = await supabase
+      .from('prenatal_controls')
+      .insert({
+        pregnancy_id: pregnancyData.id,
+        patient_id: patientData.id,
+        control_date: new Date().toISOString().split('T')[0],
+        gestational_weeks: data.gestationalWeeks,
+        weight_kg: data.weight,
+        blood_pressure_systolic: data.bloodPressureSystolic,
+        blood_pressure_diastolic: data.bloodPressureDiastolic,
+        doctor_id: user?.id
+      })
+
+    if (controlError) {
+      toast.error('Error al registrar el control prenatal inicial')
       setIsSubmitting(false)
       return
     }
@@ -260,6 +286,24 @@ export default function NewPatientPage() {
                           <option value="high">Riesgo Alto (Referencia inmediata / Peligro)</option>
                         </select>
                       </Field>
+                    </div>
+
+                    <div className="sm:col-span-2 pt-4 border-t border-border mt-2">
+                      <h3 className="text-sm font-semibold text-foreground mb-4">Signos Vitales y Gestación (Control Inicial)</h3>
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <Field label="Peso (kg)" error={errors.weight?.message}>
+                          <input {...register('weight', { valueAsNumber: true })} type="number" step="0.1" className={inputClass} placeholder="Ej. 65" />
+                        </Field>
+                        <Field label="P. Sistólica" error={errors.bloodPressureSystolic?.message}>
+                          <input {...register('bloodPressureSystolic', { valueAsNumber: true })} type="number" className={inputClass} placeholder="Ej. 120" />
+                        </Field>
+                        <Field label="P. Diastólica" error={errors.bloodPressureDiastolic?.message}>
+                          <input {...register('bloodPressureDiastolic', { valueAsNumber: true })} type="number" className={inputClass} placeholder="Ej. 80" />
+                        </Field>
+                        <Field label="Semanas Gest." error={errors.gestationalWeeks?.message}>
+                          <input {...register('gestationalWeeks', { valueAsNumber: true })} type="number" className={inputClass} placeholder="Ej. 12" />
+                        </Field>
+                      </div>
                     </div>
                   </div>
                 </>
