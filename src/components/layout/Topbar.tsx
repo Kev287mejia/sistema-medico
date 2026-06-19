@@ -93,11 +93,19 @@ export function Topbar({ pageTitle = 'Dashboard', pageSubtitle, profile }: Topba
   }, [])
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.replace('/login')
-    setTimeout(() => {
-      window.location.reload()
-    }, 100)
+    try {
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error('Error during sign out:', error)
+    } finally {
+      // Forzar borrado de localStorage para Supabase en móviles
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('sb-')) {
+          localStorage.removeItem(key)
+        }
+      })
+      window.location.href = '/login'
+    }
   }
 
   const toggleDark = async () => {
