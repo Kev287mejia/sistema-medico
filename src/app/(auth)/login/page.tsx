@@ -41,11 +41,11 @@ export default function LoginPage() {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        window.location.href = '/dashboard'
+        router.push('/dashboard')
       }
     }
     checkUser()
-  }, [supabase])
+  }, [supabase, router])
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
@@ -61,7 +61,8 @@ export default function LoginPage() {
       return
     }
 
-    window.location.href = '/dashboard'
+    router.push('/dashboard')
+    router.refresh()
   }
 
   return (
