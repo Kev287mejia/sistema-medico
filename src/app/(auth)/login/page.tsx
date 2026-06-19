@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useForm } from 'react-hook-form'
@@ -36,6 +36,16 @@ export default function LoginPage() {
   })
 
   const supabase = createClient()
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        window.location.href = '/dashboard'
+      }
+    }
+    checkUser()
+  }, [supabase])
 
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)

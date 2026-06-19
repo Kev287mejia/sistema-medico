@@ -74,13 +74,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect logged-in users away from auth pages
-  if (user && (request.nextUrl.pathname === '/login' || request.nextUrl.pathname === '/')) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/dashboard'
-    return NextResponse.redirect(url)
-  }
-
   return supabaseResponse
 }
 
