@@ -114,14 +114,6 @@ export default function LoginPage() {
             Expedientes médicos digitales, control prenatal automatizado y trazabilidad completa.
           </p>
         </motion.div>
-
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          className="relative z-10 flex items-center gap-2 text-blue-300 text-sm"
-        >
-          <Shield className="w-4 h-4" />
-          <span>Datos protegidos · Cumplimiento MINSA Nicaragua</span>
-        </motion.div>
       </div>
 
       {/* ── Panel Derecho (Formulario) ── */}
