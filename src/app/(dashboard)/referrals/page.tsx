@@ -94,6 +94,16 @@ export default function ReferralsPage() {
     setIsSaving(false)
   }
 
+  const handleCompleteReferral = async (id: string) => {
+    const { error } = await supabase.from('referrals').update({ status: 'completed' }).eq('id', id)
+    if (!error) {
+      toast.success('Referencia marcada como completada')
+      setReferrals(prev => prev.map(r => r.id === id ? { ...r, status: 'completed' } : r))
+    } else {
+      toast.error('Error al actualizar la referencia')
+    }
+  }
+
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -221,9 +231,17 @@ export default function ReferralsPage() {
                   </div>
                   <div className="flex flex-row sm:flex-col items-center sm:items-end gap-3 shrink-0 mt-4 sm:mt-0">
                     {ref.status === 'active' ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-100 shadow-sm">
-                        <AlertTriangle className="w-4 h-4" /> En curso
-                      </span>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-red-50 text-red-700 border border-red-100 shadow-sm">
+                          <AlertTriangle className="w-4 h-4" /> En curso
+                        </span>
+                        <button 
+                          onClick={() => handleCompleteReferral(ref.id)}
+                          className="text-xs px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg font-semibold transition-colors"
+                        >
+                          Marcar Completada
+                        </button>
+                      </div>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 shadow-sm">
                         <CheckCircle className="w-4 h-4" /> Completada
