@@ -61,7 +61,8 @@ export const getAllNavItems = (role?: string) => {
     case 'nurse':
       mainItems.push(
         { label: 'Pacientes', href: '/patients', icon: Users },
-        { label: 'Control Prenatal', href: '/prenatal', icon: Baby }
+        { label: 'Control Prenatal', href: '/prenatal', icon: Baby },
+        { label: 'Citas', href: '/appointments', icon: CalendarDays }
       )
       gestionItems.push(
         { label: 'Camas', href: '/admissions', icon: BedDouble },
